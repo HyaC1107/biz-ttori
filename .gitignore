@@ -1,0 +1,23 @@
+# ===== 시크릿 (절대 커밋 금지) =====
+keys/.env
+.env
+*.env
+!*.env.example          # 템플릿은 커밋 허용
+
+# ===== 의존성 / 빌드 =====
+node_modules/
+dist/
+build/
+
+# ===== OS / 에디터 노이즈 =====
+.DS_Store
+*.log
+
+# ===== Obsidian (per-user 캐시/워크스페이스만 제외, 설정은 공유) =====
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+
+# ===== 임시 =====
+scratchpad/
+tmp/
