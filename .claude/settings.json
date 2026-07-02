@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(xcrun simctl *)",
+      "Bash(curl -s -X POST http://localhost:8081/reload)",
+      "Bash(npx react-native run-ios)",
+      "Bash(npx @react-native-community/cli doctor)",
+      "Bash(nvm use *)",
+      "Bash(nvm install *)",
+      "Bash(npm install *)",
+      "Bash(bundle install)",
+      "Bash(bundle exec pod install)"
+    ]
+  }
+}

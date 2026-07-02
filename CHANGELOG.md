@@ -54,6 +54,9 @@
   - **OpenClaw 웹검증** — 실재 확인(오픈소스 게이트웨이, SOUL.md, ClawHub). 단 **자기 LLM 루프를 돎**(게이트웨이 아님) → 원안의 "OpenClaw가 planner/coder 실행" = 두뇌 2개=지갑방어 충돌
   - **가이드 교정** — "두 번째 두뇌"→**leash(배관) 모델**: OpenClaw는 싼 모델·자율루프 OFF·승인버튼, 무거운 사고는 `claude -p`로 셸 위임. 두뇌는 클또리 하나 유지
   - `memory/api-specs.md` 내부툴 `slack-report` ✅구현 갱신, g-brain-map 상태 동기화
+## 2026-07-01
 
-
+- **젬또리 검색 및 검증 원칙 (S2) 추가**
+  - Antigravity (젬또리) 전용 프로젝트 규칙 파일 `.agents/AGENTS.md` 생성 및 5대 검색 원칙 명문화 (공식 문서 우선, 날짜/버전 명시, 교차검증, 상충 정보 명시, 출처 첨부).
+  - `memory/team-rules.md`에 젬또리 검색 및 검증 원칙(S2) 조항 추가.
 

@@ -19,6 +19,7 @@ cd "$ROOT"
 NOTES="$(find . -type f -name '*.md' \
   -not -path './node_modules/*' \
   -not -path './.git/*' \
+  -not -path './_templates/*' \
   -not -path './.obsidian/*')"
 
 if [ -z "$NOTES" ]; then
@@ -49,6 +50,7 @@ while IFS= read -r f; do
     t="$(printf '%s' "$t" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
     [ -z "$t" ] && continue           # 순수 헤딩 링크 [[#sec]] 스킵
     case "$t" in *"{"*|*"}"*) continue;; esac  # 템플릿 자리표시자 {..} 스킵
+    case "$t" in *.png|*.jpg|*.jpeg|*.gif|*.pdf) continue;; esac  # 이미지/미디어 파일 스킵
 
     TOTAL=$((TOTAL + 1))
     base="$(basename "$t")"           # 경로형 [[a/b/note]] → note

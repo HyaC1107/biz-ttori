@@ -29,11 +29,12 @@
 
 ## 📂 프로젝트 노드 (실연동 시 추가)
 
-> 첫 실프로젝트가 붙으면 아래에 행을 추가하고 `projects/<name>/` 폴더를 만든다.
+> 실제 활성화된 외부 프로젝트 노드 자동 동기화 목록입니다.
 
 | 프로젝트 | 폴더 | context | api-specs 범위 | 상태 |
 |:---|:---|:---|:---|:---|
-| _(없음 — 첫 연동 대기)_ | — | — | — | — |
+| [[FMS/FMS]] | `projects/FMS/` | `projects/FMS/context.md` | `projects/FMS/api-specs.md` | 🟢 활성 |
+| [[close/close]] | `projects/close/` | `projects/close/context.md` | `projects/close/api-specs.md` | 🟢 활성 |
 
 ### 내부 툴(biz-ttori 자체 개발)
 
