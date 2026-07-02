@@ -61,11 +61,21 @@ iOS도 `RCT_NEW_ARCH_ENABLED=1`(bridgeless) 활성 상태.
 - `xcodebuild` 시뮬레이터 빌드 **BUILD SUCCEEDED** — Swift 3파일 + xcframework 링크 정상.
 - 발견·수정한 컴파일 이슈 1건: `didChangeRetryState:`의 Swift 임포트 이름이 state 콜백과 동일한 `broadcastSession(_:didChange:)`(파라미터 타입 오버로드) → 시그니처 정정.
 
-## 4. Android 작업 순서 (블로커 해제 후 착수)
+## 4. Android 작업 순서 ✅ 완료 (2026-07-02)
 
-- JDK 17~20 설치 확인 → `android/app/build.gradle`에 `implementation 'com.amazonaws:ivs-broadcast:1.43.0:stages@aar'` 추가
-- `IVSBroadcastModule.kt`(`ReactContextBaseJavaModule` + `RCTDeviceEventEmitter`), `IVSPreviewViewManager.kt`(`SimpleViewManager<View>`) — iOS와 동일한 메서드/이벤트 시그니처로 대칭 구현
-- Foreground Service(백그라운드 유지)는 이번 Native Bridge 스코프에서 **제외** — §6 백그라운드 정책은 별도 작업으로 분리(기술설계서 §6 기준)
+- **JDK 블로커 해소**: JDK 17.0.9(Temurin) 이미 설치돼 있었음(기본 java는 11). 하드코딩 대신 빌드 시 `JAVA_HOME=.../temurin-17.jdk/...` 지정(run-ios의 Node PATH 패턴과 동일, 버전관리 파일 오염 방지).
+- **의존성**: `android/app/build.gradle`에 `implementation("com.amazonaws:ivs-broadcast:1.43.0")` — ⚠️ **`:stages@aar` 분류자 금지**(그건 WebRTC/Stages용, 우리는 RTMPS). Android는 Maven Central 정상 배포(iOS와 달리 중단 안 됨). 최신 안정판 1.43.0(그 위 1.45.0-rc.1은 RC).
+- **Kotlin(패키지 `com.fanbirdbroadcast`)**: `IvsBroadcastController.kt`(BroadcastSession 단독 소유 싱글턴, iOS 대칭) + `IvsBroadcastModule.kt`(`ReactContextBaseJavaModule`, 이벤트는 `DeviceEventManagerModule.RCTDeviceEventEmitter`) + `IvsCameraPreviewView.kt`(`FrameLayout`) + `IvsCameraPreviewViewManager.kt`(`SimpleViewManager`) + `IvsBroadcastPackage.kt`(`ReactPackage`). `MainApplication.kt`에 패키지 등록.
+- **AndroidManifest**: `CAMERA`/`RECORD_AUDIO` 권한 추가.
+- **스레드**: IVS Android는 "인스턴스화된 스레드에서만 호출" 규칙 → 컨트롤러는 UI 스레드 가정, 모듈이 `UiThreadUtil.runOnUiThread`로 감쌈.
+- **API 실측**: 추측 대신 AAR을 받아 `javap`로 시그니처 확인(iOS 헤더 읽기와 동일 접근). 프리뷰는 iOS(디바이스에서 fish out)와 달리 `session.getPreviewView(AspectMode.FILL)`로 세션에서 직접 취득 — 더 간단.
+- **검증**: `./gradlew :app:assembleDebug` **BUILD SUCCESSFUL(7m18s)**, app-debug.apk 생성(IVS 네이티브 lib 4개 아키텍처 포함). 우리 Kotlin 클린 컴파일(경고는 react-native-screens 의존성 것뿐).
+- **미검증(다음)**: 에뮬레이터/실기기 런타임 기동 — 에뮬레이터는 가상 카메라 제공하므로 iOS 시뮬레이터와 달리 프리뷰 실제 렌더 확인 가능성 있음.
+- Foreground Service(백그라운드 유지)는 이번 스코프 **제외** — 기술설계서 §6 별도 작업.
+
+### 4.1 젬또리에게 넘길 설계서(`송출앱_기술설계서.md`) 수정 항목
+- §5.1 Android gradle 라인 `com.amazonaws:ivs-broadcast:1.43.0:stages@aar` → **`:stages@aar` 제거**(RTMPS는 순수 `ivs-broadcast`, `:stages`는 WebRTC/Stages 전용).
+- §5.1 iOS "SPM 지원" → 실제로는 **CocoaPods 배포 중단(iOS 1.39.0~)**, vendored xcframework 방식 채택으로 갱신.
 
 ## 5. 검증 계획 (AWS 스트림키 미확보 상태 기준)
 
