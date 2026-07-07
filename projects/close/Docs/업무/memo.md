@@ -1,3 +1,15 @@
+---
+type: spec
+status: 초안
+project: "fanbird (close)"
+created: 2026-07-06
+updated: 2026-07-06
+author: "Antigravity"
+is_public: false
+tags: [type/spec, status/초안, fanbird, memo]
+related: ["[[projects/close/close|fanbird]]", "[[g-brain-map]]"]
+---
+
 1. 방송 알림 발송기능
 2. 상품 등록, 수정, 삭제
 3. 가격 및 재고 실시간 수정

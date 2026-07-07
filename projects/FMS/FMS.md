@@ -7,3 +7,4 @@
 
 ## 문서 목록
 - [[docs/작업현황_인수인계]]
+- [[api-specs]] — FE↔BE API 계약 (SSOT)

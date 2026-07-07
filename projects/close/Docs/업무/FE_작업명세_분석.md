@@ -1,4 +1,17 @@
+---
+type: spec
+status: 완료
+project: "fanbird (close)"
+created: 2026-07-01
+updated: 2026-07-06
+author: "Antigravity"
+is_public: false
+tags: [type/spec, status/완료, fanbird, planning, backend]
+related: ["[[projects/close/close|fanbird]]", "[[송출앱_기술설계서]]", "[[g-brain-map]]"]
+---
+
 # 팬버드 라이브커머스 — 프론트엔드 작업 분석 (React Web + React Native)
+
 
 > **기준**: 프론트엔드 개발자 1인, 디자인 시안 및 백엔드 API 준비 완료 가정  
 > **플랫폼 확정**: 웹(시청·관리 현행 유지) + RN 앱(송출 전용 신규)  

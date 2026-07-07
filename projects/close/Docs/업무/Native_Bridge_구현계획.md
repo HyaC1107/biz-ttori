@@ -1,10 +1,15 @@
 ---
-title: Native Bridge 구현계획
-project: "[[projects/close/close|fanbird]]"
-tags: [plan, native-bridge]
+type: spec
 status: 진행중
+project: "fanbird (close)"
 created: 2026-07-02
+updated: 2026-07-06
+author: "Antigravity"
+is_public: false
+tags: [type/spec, status/진행중, fanbird, rn, native-bridge]
+related: ["[[projects/close/close|fanbird]]", "[[송출앱_기술설계서]]", "[[g-brain-map]]"]
 ---
+
 
 [[송출앱_기술설계서]] §5의 인터페이스 초안을 실제 구현 순서/방식으로 구체화한 문서.
 
