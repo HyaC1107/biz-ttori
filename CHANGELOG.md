@@ -60,3 +60,15 @@
   - Antigravity (젬또리) 전용 프로젝트 규칙 파일 `.agents/AGENTS.md` 생성 및 5대 검색 원칙 명문화 (공식 문서 우선, 날짜/버전 명시, 교차검증, 상충 정보 명시, 출처 첨부).
   - `memory/team-rules.md`에 젬또리 검색 및 검증 원칙(S2) 조항 추가.
 
+## 2026-07-09 — Phase 2: 젬또리(Antigravity) 스펙업 및 자가 검증 루프 탑재
+
+- **임의 유추 개발 금지 가드레일 (Strict Ask Mode) 도입**
+  - [AGENTS.md](file:///Users/linkcampus02/biz-ttori/.agents/AGENTS.md)에 오버스펙 임의 개발 방지 룰 신설. 기획서의 애매함은 자의적으로 보완하지 않고 반드시 질문을 던져 PM/사용자의 의사를 확인하도록 조항 규정.
+- **비주얼 검증 봇 (Visual Validator Bot) 커스텀 스킬 신설**
+  - [.agents/skills/visual-validator/SKILL.md](file:///Users/linkcampus02/biz-ttori/.agents/skills/visual-validator/SKILL.md) 및 [.agents/skills/visual-validator/scripts/visual-check.js](file:///Users/linkcampus02/biz-ttori/.agents/skills/visual-validator/scripts/visual-check.js) 스크립트 작성.
+  - Playwright 및 Pixelmatch를 활용하여 UI 수정 전/후의 화면 캡처 및 픽셀 오차율(%) 대조 계산을 자가 검증하는 전용 테스트 봇 구축.
+- **에이전트 구동 환경별 역할 분담 (Role Separation) 선언**
+  - [AGENTS.md](file:///Users/linkcampus02/biz-ttori/.agents/AGENTS.md)에 CLI 젬또리(TUI 및 백그라운드 자동화/정량 빌드 검증 담당)와 IDE 젬또리(마우스 커서/활성 탭 추적 및 정교한 UX/CSS 변경 제안 담당)의 행동 강령 및 역할 분담 조항 명문화.
+- **지식 인덱스 및 링크 무결성 검증 완료**
+  - `gbrain-doctor.sh`를 활용하여 122개 위키링크의 정합성(깨진 링크 0개) 무결성 체크 패스.
+
