@@ -21,3 +21,7 @@ build/
 # ===== 임시 =====
 scratchpad/
 tmp/
+
+# ===== Playwright / Visual Validation Temp =====
+.playwright-mcp/
+visual-diff/
