@@ -25,3 +25,10 @@ tmp/
 # ===== Playwright / Visual Validation Temp =====
 .playwright-mcp/
 visual-diff/
+
+# ===== AI 회사 대시보드 (dashboard/) 런타임 산출물 =====
+# events.jsonl 은 환경마다 새로 쌓이는 로그다. 커밋하면 남의 이벤트가 딸려온다.
+company/events.jsonl
+company/spawn-queue.json
+company/.briefing-state.json
+__pycache__/
