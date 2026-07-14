@@ -1,0 +1,36 @@
+{
+  "_comment": "이 환경의 부서·프로젝트·봇 명단(SSOT). 이벤트의 project 필드는 여기 등록된 id만 허용된다(유령 프로젝트 차단). 상태/단계는 PM이 갱신한다.",
+  "updated": "2026-07-13",
+  "depts": [
+    { "slug": "hq", "name": "경영지원", "color": "#ffd166" },
+    { "slug": "dev", "name": "개발부", "color": "#7cc4ff" },
+    { "slug": "qa", "name": "품질부", "color": "#6ee7a0" },
+    { "slug": "research", "name": "리서치부", "color": "#c4a2ff" }
+  ],
+  "projects": [
+    {
+      "id": "FMS",
+      "name": "📋 FMS",
+      "dept": "dev",
+      "status": "active",
+      "phase": "-",
+      "note": "PM이 갱신할 것",
+      "details": "두뇌: projects/FMS/FMS.md · 계약: projects/FMS/api-specs.md"
+    },
+    {
+      "id": "close",
+      "name": "📱 close",
+      "dept": "dev",
+      "status": "active",
+      "phase": "-",
+      "note": "PM이 갱신할 것",
+      "details": "두뇌: projects/close/close.md · 작업문서: projects/close/Docs/업무/"
+    }
+  ],
+  "bots": [
+    { "name": "클또리", "dept": "hq", "role": "지휘·개발/기획 총괄" },
+    { "name": "젬또리", "dept": "research", "role": "리서치·문서 팩트체크 (T1 PM 직접 운전)" },
+    { "name": "리뷰 분신", "dept": "qa", "role": "코드리뷰 (diff 한정, 작성 분신과 분리)" },
+    { "name": "테스터 분신", "dept": "qa", "role": "테스트케이스 작성·검증" }
+  ]
+}

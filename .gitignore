@@ -8,6 +8,7 @@ keys/.env
 node_modules/
 dist/
 build/
+__pycache__/
 
 # ===== OS / 에디터 노이즈 =====
 .DS_Store
@@ -26,5 +27,11 @@ tmp/
 .playwright-mcp/
 visual-diff/
 
-# ===== ignore business ======
+# ===== AI 회사 대시보드 (dashboard/) 런타임 산출물 =====
+# events.jsonl 은 환경마다 새로 쌓이는 로그다. 커밋하면 남의 이벤트가 딸려온다.
+company/events.jsonl
+company/spawn-queue.json
+company/.briefing-state.json
+
+# ===== 실프로젝트 컨텍스트 (두뇌 로컬 전용, git 제외) =====
 projects/
