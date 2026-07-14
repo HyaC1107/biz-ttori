@@ -1,0 +1,12 @@
+{
+  "auto-daily-logger": {
+    "enabled": true,
+    "Stop": [
+      {
+        "type": "command",
+        "command": "/Users/linkcampus02/biz-ttori/.agents/scripts/auto-logger.js",
+        "timeout": 15
+      }
+    ]
+  }
+}

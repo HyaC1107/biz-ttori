@@ -11,8 +11,8 @@
 워크스페이스 : Biz-Ttori (회사 풀스택/RN & 기획 지원 환경)
 현재 단계    : Phase 1 — 멀티에이전트 협업 구조 정비 (거의 완료)
 체제         : 2인 (클또리 + 젬또리) + 클또리 내부 분신 / 챗또리(codex) 보류
-마지막 작업  : close 웹 주문내역 컬럼 수정범위 조율(롤백 및 텍스트 유지 완료) / fanbird-broadcast 안드로이드 사전 권한 고지(Prominent Disclosure) 모달 UI 및 비동기 동의 제어 프로세스 구현 완료 / 젬또리 스펙업(임의 유추 개발 금지 가드레일, 비주얼 검증 봇 visual-validator 스킬, CLI/IDE 역할 분담 규칙 도입) 및 깃 허브 원격 푸시 완료 (2026-07-09, [[daily/260709]])
-다음 할 일   : (PM) 안드로이드 실기기 QA 후 배포 전 임시 데모 우회 코드 2건 원복(TEMP_SKIP_TIME_CHECK, isTempDeletableEnded) 및 플레이스토어 심사 등록(AAB 빌드, 데모영상, 패키지이름 com.fanbirdbroadcast 설정) / iOS 실기기 교차 검증 / 유저 사이트 라이브 노출 QA 테스트
+마지막 작업  : fanbird-broadcast 실기기 검증 세션(2026-07-13). **검증 완료**: 다중 마이크 위치(iOS+Android), Android 블루투스 마이크 SCO(녹음 정상), 레이턴시 자동복구(양 플랫폼), UI(토글버튼·폴드 레이아웃). **오늘 코드 작성(실기기 미검증)**: iOS 블루투스 **재연결**(시작전 연결→해제→재연결) 시 마이크 라벨이 "아이폰 하단"으로 남는 문제 → 라우트 변경 후 즉시+지연(0.5/1.0/1.8s) 재확인 retry로 수정(HFP 마이크가 ~1초 비동기 수립되는 걸 놓치던 문제, `IVSBroadcastController.swift`). **신규 발견(🔴 최우선, 원인 미확정)**: 방송 중 전화 수신 시 송출앱은 방송 유지로 보이나 시청자(close 플레이어)에선 스트림 끊기고 "방송 준비중"만 뜸 → IVS 세션 실제 종료 추정. 코드로 바로 못 고치고 실기기+IVS 콘솔 진단 선행 필요(Android AudioFocus 진단 로그만 보강). **A/V 싱크 저하 대비 구현(코드)**: 최소 비트레이트 하한 1.5M→0.8M(iOS/Android, 방송 정상 시작 확인) + 네트워크 불안정 경고 배너(BroadcastScreen, `networkHealth`가 high/excellent 아니면 저하 판정 — broadcastQuality/recommendedBitrate는 실측상 신호 못 됨). **close 시청자 종료감지 수정(코드)**: 뷰어가 IVS 플레이어 상태로만 종료 감지해 목록 복귀 실패하던 버그 → `Live_Component.tsx`에서 `live_status`(='종료') 5초 폴링 + IVS 이벤트도 live_status 확인 후에만 종료 처리(일시저하 오탐 방지) (2026-07-13, [[daily/260713]])
+다음 할 일   : **🔴 전화 인터럽트 시청자 스트림 소실 진단(최우선) — 실기기+IVS 콘솔 동시 관찰**(콘솔 스트림 세션 유지 여부/비트레이트 그래프, logcat `AudioFocusTest focusChange=` 값·GAIN 여부·RetryState 전이) / iOS 블루투스 재연결 라벨 수정 실기기 검증(`[MicRouteFix]` 로그) / A/V싱크 대비 실기기 검증(커스텀 ~1.2M 업링크로 배너 유지·비디오 0.8M 흐름) / close 종료감지 수정 웹 검증 + `TutoLive.tsx` 동일버그 확인 / 오디오인터럽트 iOS 검증 / 발열 S22·Fold7
 ```
 
 ## ⏳ 다음 할 일 (우선순위 순)
@@ -29,6 +29,10 @@
 ## 🚧 블로커 / 결정 대기
 
 - (없음 — close 로그인 이슈는 이후 세션에서 정상 동작 확인되어 해소)
+
+## 📌 백로그 (급하지 않음)
+
+- **fanbird-broadcast `liveStatus` 판단을 네이티브 세션 실제 상태로** — 현재 JS 모듈 변수 `activeBroadcastSeq`가 유일 근거라 JS 리로드 시 화면이 네이티브 세션과 desync(2026-07-13 Fast Refresh로 관측, dev 아티팩트). 네이티브에 `isSessionActive()`/`getActiveSeq()` 노출(iOS `isBroadcasting` 이미 있음) 후 마운트 시 조회하도록. 프로덕션 JS 리로드 대비. feedback-metro-dev-live-test
 
 ## 💤 보류 (실프로젝트/일지 쌓인 뒤 재검토)
 

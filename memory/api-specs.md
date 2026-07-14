@@ -12,7 +12,7 @@
 
 | 프로젝트 | 계약 SSOT 위치 | 비고 |
 |:---|:---|:---|
-| _(없음 — 첫 연동 대기)_ | `projects/<name>/api-specs.md` | — |
+| close (fanbird) | `projects/close/api-specs.md` | orders 도메인 — 발주완료(N차 배치/발주서) 등 신규 API 다수 대기중 (2026-07-09) |
 
 ---
 

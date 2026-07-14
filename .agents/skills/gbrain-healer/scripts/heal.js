@@ -96,6 +96,7 @@ function main() {
       const rawTarget = match[1];
       
       // 별칭(|), 헤딩(#) 분리
+      const target = rawTarget.split('|')[0].split('#')[0].trim();
       const isMedia = /\.(png|jpg|jpeg|gif|pdf)$/i.test(target);
       if (!target || target.startsWith('{') || target.startsWith('}') || target === '.' || target === '..' || isMedia) continue; // 스킵
       

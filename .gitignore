@@ -25,3 +25,6 @@ tmp/
 # ===== Playwright / Visual Validation Temp =====
 .playwright-mcp/
 visual-diff/
+
+# ===== ignore business ======
+projects/
