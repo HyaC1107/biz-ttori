@@ -17,6 +17,18 @@
 
 ---
 
+## 📑 문서 인덱스 (상태별 모아보기, 2026-07-15 신설)
+
+> 문서 3개 이상 쌓인 폴더의 상태(진행중/초안/완료) 뷰. 파일은 안 옮기고 인덱스만 둔다 — CLAUDE.md §3 참고.
+
+| 인덱스 | 대상 폴더 |
+|:---|:---|
+| [[specs/README]] | `specs/` (biz-ttori 자체 툴 스펙) |
+| [[projects/close/Docs/업무/README]] | `projects/close/Docs/업무/` |
+| [[projects/fanbird-broadcast/README]] | `projects/fanbird-broadcast/` |
+
+---
+
 ## 🔗 연결 규약 (요약)
 
 - **코드 ↔ 문서**: 모듈/기능 단위 `[[링크]]`만 (함수 단위 금지 — G1). 안정적 앵커에만.
@@ -35,6 +47,7 @@
 |:---|:---|:---|:---|:---|
 | [[FMS/FMS]] | `projects/FMS/` | `projects/FMS/context.md` | `projects/FMS/api-specs.md` | 🟢 활성 |
 | [[close/close]] | `projects/close/` | `projects/close/context.md` | `projects/close/api-specs.md` | 🟢 활성 |
+| [[fanbird-broadcast/fanbird-broadcast]] | `projects/fanbird-broadcast/` | `projects/fanbird-broadcast/context.md` | `projects/fanbird-broadcast/api-specs.md` | 🟢 활성 |
 
 ### 내부 툴(biz-ttori 자체 개발)
 
@@ -42,6 +55,7 @@
 |:---|:---|:---|
 | Slack 연동 | [[slack-integration-spec]] (`specs/slack-integration-spec.md`) | 🟢 Phase1 구현(`tools/slack-post.sh`) |
 | OpenClaw 연동 | [[openclaw-integration-guide]] (`specs/openclaw-integration-guide.md`) | 🟡 Phase2 설계(leash 모델로 교정) |
+| 젬또리 질문창 | [[ask-gemttori-dashboard-spec]] (`specs/ask-gemttori-dashboard-spec.md`) | 🟡 Phase1 설계 완료 |
 
 ---
 
