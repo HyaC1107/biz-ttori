@@ -96,10 +96,20 @@ def append_event(type: str, actor: str, dept: str, summary: str,
     """
     assert type in VALID_TYPES, f"unknown event type: {type}"
     validate_project(project)
+    
+    # 🚨 위험 행동 블랙리스트 패턴 감지 및 결재 요구 강제 (Phase 0 가드레일)
+    import re
+    danger_patterns = [r"git\s+push", r"rm\s+-rf", r"\bdeploy\b", r"\bpublish\b", r"\bdelete\b", r"\bdrop\b"]
+    for pat in danger_patterns:
+        if re.search(pat, summary, re.IGNORECASE):
+            requires_approval = True
+            print(f"⚠️ 위험 행동 감지: '{summary}' — 결재 승인 강제 적용 (requires_approval=True)")
+            break
+            
     ev = {
         "ts": datetime.now(KST).isoformat(timespec="seconds"),
         "type": type, "actor": actor, "dept": dept,
-        "summary": summary[:120],
+        "summary": summary[:1000],
     }
     if project:
         ev["project"] = project

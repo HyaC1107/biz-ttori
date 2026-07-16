@@ -1,228 +1,468 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>또리 주식회사 — 관제 대시보드 (목업)</title>
-<style>
-  :root {
-    --bg: #0f1220; --panel: #181c30; --panel2: #1f2440; --line: #2c3358;
-    --txt: #e8eaf6; --dim: #8a91b4; --accent: #ffd166; --ok: #6ee7a0;
-    --warn: #ff8fa3; --info: #7cc4ff;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: var(--bg); color: var(--txt);
-    font-family: "Galmuri11", "DungGeunMo", "Pretendard", monospace;
-    min-height: 100vh; padding: 16px;
-  }
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 18px; background: var(--panel); border: 2px solid var(--line);
-    border-radius: 12px; margin-bottom: 14px;
-  }
-  header h1 { font-size: 18px; letter-spacing: 1px; }
-  header h1 .lv { color: var(--accent); font-size: 12px; margin-left: 8px; }
-  .coins { color: var(--accent); font-size: 13px; }
-  .coins span { color: var(--dim); font-size: 11px; }
-  .layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
-  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI agent — 관제 대시보드 (목업)</title>
+  <style>
+    :root {
+      --bg: #0f1220;
+      --panel: #181c30;
+      --panel2: #1f2440;
+      --line: #2c3358;
+      --txt: #e8eaf6;
+      --dim: #8a91b4;
+      --accent: #ffd166;
+      --ok: #6ee7a0;
+      --warn: #ff8fa3;
+      --info: #7cc4ff;
+    }
 
-  /* ── 사무실 뷰 ── */
-  .office { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 14px; }
-  .office h2, .side h2 { font-size: 13px; color: var(--dim); margin-bottom: 10px; letter-spacing: 2px; }
-  .rooms { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .room {
-    background: var(--panel2); border: 2px solid var(--line); border-radius: 10px;
-    padding: 12px; position: relative; min-height: 118px;
-  }
-  .room .dept { font-size: 12px; color: var(--info); margin-bottom: 8px; }
-  .room .dept em { font-style: normal; color: var(--dim); font-size: 10px; }
-  .bots { display: flex; flex-wrap: wrap; gap: 10px; }
-  .bot { text-align: center; width: 62px; position: relative; }
-  .bot .face { font-size: 26px; display: block; }
-  .bot .name { font-size: 10px; color: var(--dim); display: block; margin-top: 2px; }
-  .bot .st { font-size: 9px; display: inline-block; margin-top: 3px; padding: 1px 6px; border-radius: 6px; }
-  .st.working { background: #2b3a24; color: var(--ok); animation: blink 1.2s infinite; }
-  .st.idle { background: #262b45; color: var(--dim); }
-  .st.done { background: #3a3424; color: var(--accent); }
-  @keyframes blink { 50% { opacity: .45; } }
-  .bubble {
-    position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
-    background: var(--txt); color: #111; font-size: 9px; padding: 3px 7px;
-    border-radius: 8px; white-space: nowrap; opacity: 0; transition: opacity .3s;
-    pointer-events: none; z-index: 5;
-  }
-  .bubble.show { opacity: 1; }
-  .bubble::after {
-    content: ""; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
-    border: 4px solid transparent; border-top-color: var(--txt); border-bottom: 0;
-  }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-  /* ── 사이드: 결재함 + 피드 ── */
-  .side { display: flex; flex-direction: column; gap: 14px; }
-  .panelbox { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 14px; }
-  .approval { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
-  .approval .t { font-size: 12px; margin-bottom: 4px; }
-  .approval .m { font-size: 10px; color: var(--dim); margin-bottom: 8px; }
-  .approval .btns { display: flex; gap: 6px; }
-  .approval button {
-    flex: 1; padding: 5px 0; font-size: 11px; border-radius: 6px; border: none;
-    cursor: pointer; font-family: inherit;
-  }
-  .ok-btn { background: var(--ok); color: #0d2416; }
-  .no-btn { background: var(--warn); color: #3d0f19; }
-  .approval.decided { opacity: .5; }
-  .approval.decided .btns { display: none; }
-  .approval .verdict { font-size: 10px; color: var(--accent); }
-  #feed { list-style: none; max-height: 340px; overflow-y: auto; }
-  #feed li {
-    font-size: 11px; padding: 6px 4px; border-bottom: 1px dashed var(--line);
-    display: flex; gap: 8px; align-items: baseline;
-  }
-  #feed li .ts { color: var(--dim); font-size: 9px; flex-shrink: 0; }
-  #feed li.new { animation: slidein .4s; background: #232a4d; }
-  @keyframes slidein { from { transform: translateY(-8px); opacity: 0; } }
-  footer { margin-top: 14px; font-size: 10px; color: var(--dim); text-align: center; }
-</style>
+    body {
+      background: var(--bg);
+      color: var(--txt);
+      font-family: "Galmuri11", "DungGeunMo", "Pretendard", monospace;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      background: var(--panel);
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      margin-bottom: 14px;
+    }
+
+    header h1 {
+      font-size: 18px;
+      letter-spacing: 1px;
+    }
+
+    header h1 .lv {
+      color: var(--accent);
+      font-size: 12px;
+      margin-left: 8px;
+    }
+
+    .coins {
+      color: var(--accent);
+      font-size: 13px;
+    }
+
+    .coins span {
+      color: var(--dim);
+      font-size: 11px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── 사무실 뷰 ── */
+    .office {
+      background: var(--panel);
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .office h2,
+    .side h2 {
+      font-size: 13px;
+      color: var(--dim);
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+    }
+
+    .rooms {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .room {
+      background: var(--panel2);
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      position: relative;
+      min-height: 118px;
+    }
+
+    .room .dept {
+      font-size: 12px;
+      color: var(--info);
+      margin-bottom: 8px;
+    }
+
+    .room .dept em {
+      font-style: normal;
+      color: var(--dim);
+      font-size: 10px;
+    }
+
+    .bots {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .bot {
+      text-align: center;
+      width: 62px;
+      position: relative;
+    }
+
+    .bot .face {
+      font-size: 26px;
+      display: block;
+    }
+
+    .bot .name {
+      font-size: 10px;
+      color: var(--dim);
+      display: block;
+      margin-top: 2px;
+    }
+
+    .bot .st {
+      font-size: 9px;
+      display: inline-block;
+      margin-top: 3px;
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+
+    .st.working {
+      background: #2b3a24;
+      color: var(--ok);
+      animation: blink 1.2s infinite;
+    }
+
+    .st.idle {
+      background: #262b45;
+      color: var(--dim);
+    }
+
+    .st.done {
+      background: #3a3424;
+      color: var(--accent);
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: .45;
+      }
+    }
+
+    .bubble {
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--txt);
+      color: #111;
+      font-size: 9px;
+      padding: 3px 7px;
+      border-radius: 8px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .bubble.show {
+      opacity: 1;
+    }
+
+    .bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: var(--txt);
+      border-bottom: 0;
+    }
+
+    /* ── 사이드: 결재함 + 피드 ── */
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panelbox {
+      background: var(--panel);
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .approval {
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+
+    .approval .t {
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .approval .m {
+      font-size: 10px;
+      color: var(--dim);
+      margin-bottom: 8px;
+    }
+
+    .approval .btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .approval button {
+      flex: 1;
+      padding: 5px 0;
+      font-size: 11px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .ok-btn {
+      background: var(--ok);
+      color: #0d2416;
+    }
+
+    .no-btn {
+      background: var(--warn);
+      color: #3d0f19;
+    }
+
+    .approval.decided {
+      opacity: .5;
+    }
+
+    .approval.decided .btns {
+      display: none;
+    }
+
+    .approval .verdict {
+      font-size: 10px;
+      color: var(--accent);
+    }
+
+    #feed {
+      list-style: none;
+      max-height: 340px;
+      overflow-y: auto;
+    }
+
+    #feed li {
+      font-size: 11px;
+      padding: 6px 4px;
+      border-bottom: 1px dashed var(--line);
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    #feed li .ts {
+      color: var(--dim);
+      font-size: 9px;
+      flex-shrink: 0;
+    }
+
+    #feed li.new {
+      animation: slidein .4s;
+      background: #232a4d;
+    }
+
+    @keyframes slidein {
+      from {
+        transform: translateY(-8px);
+        opacity: 0;
+      }
+    }
+
+    footer {
+      margin-top: 14px;
+      font-size: 10px;
+      color: var(--dim);
+      text-align: center;
+    }
+  </style>
 </head>
+
 <body>
-<header>
-  <h1>🏢 또리 주식회사 <span class="lv">Lv.2 — Phase A 완료</span></h1>
-  <div class="coins">🪙 오늘 토큰비 <b id="cost">1,240</b> <span>/ 예산 5,000</span></div>
-</header>
+  <header>
+    <h1>🏢 AI agent <span class="lv">Lv.2 — Phase A 완료</span></h1>
+    <div class="coins">🪙 오늘 토큰비 <b id="cost">1,240</b> <span>/ 예산 5,000</span></div>
+  </header>
 
-<div class="layout">
-  <!-- 사무실 뷰 -->
-  <section class="office">
-    <h2>OFFICE VIEW</h2>
-    <div class="rooms">
-      <div class="room">
-        <div class="dept">👑 경영지원 (hq) <em>— PM 소통 창구</em></div>
-        <div class="bots">
-          <div class="bot" id="bot-claude">
-            <div class="bubble" id="bb-claude">설계 문서 작성 중…</div>
-            <span class="face">🤖</span><span class="name">클또리</span>
-            <span class="st working">working</span>
+  <div class="layout">
+    <!-- 사무실 뷰 -->
+    <section class="office">
+      <h2>OFFICE VIEW</h2>
+      <div class="rooms">
+        <div class="room">
+          <div class="dept">👑 경영지원 (hq) <em>— PM 소통 창구</em></div>
+          <div class="bots">
+            <div class="bot" id="bot-claude">
+              <div class="bubble" id="bb-claude">설계 문서 작성 중…</div>
+              <span class="face">🤖</span><span class="name">클또리</span>
+              <span class="st working">working</span>
+            </div>
+          </div>
+        </div>
+        <div class="room">
+          <div class="dept">💻 개발부 (dev)</div>
+          <div class="bots">
+            <div class="bot"><span class="face">⚙️</span><span class="name">코더봇A</span><span class="st done">done</span>
+            </div>
+            <div class="bot"><span class="face">⚙️</span><span class="name">코더봇B</span><span class="st idle">idle
+                💤</span></div>
+          </div>
+        </div>
+        <div class="room">
+          <div class="dept">✅ 품질부 (qa)</div>
+          <div class="bots">
+            <div class="bot" id="bot-codex">
+              <div class="bubble" id="bb-codex">watcher.py 리뷰 4건 발견!</div>
+              <span class="face">🔍</span><span class="name">챗또리</span><span class="st done">done</span>
+            </div>
+            <div class="bot"><span class="face">🧪</span><span class="name">테스터봇</span><span class="st idle">idle
+                💤</span></div>
+          </div>
+        </div>
+        <div class="room">
+          <div class="dept">📚 리서치부 (research)</div>
+          <div class="bots">
+            <div class="bot"><span class="face">🔭</span><span class="name">젬또리</span><span class="st done">done</span>
+            </div>
+            <div class="bot"><span class="face">📖</span><span class="name">리서처봇</span><span class="st idle">idle
+                💤</span></div>
+          </div>
+        </div>
+        <div class="room" style="grid-column: span 2;">
+          <div class="dept">📮 총무부 (ops) <em>— 비LLM, 토큰 0</em></div>
+          <div class="bots">
+            <div class="bot" id="bot-watcher">
+              <div class="bubble show" id="bb-watcher">우편함 감시 중 (3s)</div>
+              <span class="face">📡</span><span class="name">watcher</span>
+              <span class="st working">working</span>
+            </div>
+            <div class="bot"><span class="face">⏰</span><span class="name">크론</span><span class="st idle">idle 💤</span>
+            </div>
           </div>
         </div>
       </div>
-      <div class="room">
-        <div class="dept">💻 개발부 (dev)</div>
-        <div class="bots">
-          <div class="bot"><span class="face">⚙️</span><span class="name">코더봇A</span><span class="st done">done</span></div>
-          <div class="bot"><span class="face">⚙️</span><span class="name">코더봇B</span><span class="st idle">idle 💤</span></div>
+    </section>
+
+    <!-- 사이드 -->
+    <aside class="side">
+      <div class="panelbox">
+        <h2>📋 결재함 <span id="pending-count" style="color:var(--warn)">(2)</span></h2>
+        <div class="approval" data-id="A1">
+          <div class="t">Phase B 설계안 승인</div>
+          <div class="m">이벤트 JSONL SSOT + 부서 5개 구성 + spawn 상한 2 — tool-spec/biz-ttori/spec.md</div>
+          <div class="btns"><button class="ok-btn">✅ 승인</button><button class="no-btn">↩ 반려</button></div>
+          <div class="verdict"></div>
+        </div>
+        <div class="approval" data-id="A2">
+          <div class="t">Phase B 첫 스프린트 착수</div>
+          <div class="m">watcher→events.jsonl 기록 + 이벤트→태스크 변환 + spawn 큐</div>
+          <div class="btns"><button class="ok-btn">✅ 승인</button><button class="no-btn">↩ 반려</button></div>
+          <div class="verdict"></div>
         </div>
       </div>
-      <div class="room">
-        <div class="dept">✅ 품질부 (qa)</div>
-        <div class="bots">
-          <div class="bot" id="bot-codex">
-            <div class="bubble" id="bb-codex">watcher.py 리뷰 4건 발견!</div>
-            <span class="face">🔍</span><span class="name">챗또리</span><span class="st done">done</span>
-          </div>
-          <div class="bot"><span class="face">🧪</span><span class="name">테스터봇</span><span class="st idle">idle 💤</span></div>
-        </div>
+      <div class="panelbox">
+        <h2>📡 실시간 피드</h2>
+        <ul id="feed"></ul>
       </div>
-      <div class="room">
-        <div class="dept">📚 리서치부 (research)</div>
-        <div class="bots">
-          <div class="bot"><span class="face">🔭</span><span class="name">젬또리</span><span class="st done">done</span></div>
-          <div class="bot"><span class="face">📖</span><span class="name">리서처봇</span><span class="st idle">idle 💤</span></div>
-        </div>
-      </div>
-      <div class="room" style="grid-column: span 2;">
-        <div class="dept">📮 총무부 (ops) <em>— 비LLM, 토큰 0</em></div>
-        <div class="bots">
-          <div class="bot" id="bot-watcher">
-            <div class="bubble show" id="bb-watcher">우편함 감시 중 (3s)</div>
-            <span class="face">📡</span><span class="name">watcher</span>
-            <span class="st working">working</span>
-          </div>
-          <div class="bot"><span class="face">⏰</span><span class="name">크론</span><span class="st idle">idle 💤</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
+    </aside>
+  </div>
 
-  <!-- 사이드 -->
-  <aside class="side">
-    <div class="panelbox">
-      <h2>📋 결재함 <span id="pending-count" style="color:var(--warn)">(2)</span></h2>
-      <div class="approval" data-id="A1">
-        <div class="t">Phase B 설계안 승인</div>
-        <div class="m">이벤트 JSONL SSOT + 부서 5개 구성 + spawn 상한 2 — tool-spec/biz-ttori/spec.md</div>
-        <div class="btns"><button class="ok-btn">✅ 승인</button><button class="no-btn">↩ 반려</button></div>
-        <div class="verdict"></div>
-      </div>
-      <div class="approval" data-id="A2">
-        <div class="t">Phase B 첫 스프린트 착수</div>
-        <div class="m">watcher→events.jsonl 기록 + 이벤트→태스크 변환 + spawn 큐</div>
-        <div class="btns"><button class="ok-btn">✅ 승인</button><button class="no-btn">↩ 반려</button></div>
-        <div class="verdict"></div>
-      </div>
-    </div>
-    <div class="panelbox">
-      <h2>📡 실시간 피드</h2>
-      <ul id="feed"></ul>
-    </div>
-  </aside>
-</div>
+  <footer>
+    ⚠️ 목업 — 가짜 데이터로 UX 시연 중. 실버전은 company/events.jsonl 3초 폴링. · biz-ttori Phase C 프리뷰 · 2026-07-10
+  </footer>
 
-<footer>
-  ⚠️ 목업 — 가짜 데이터로 UX 시연 중. 실버전은 company/events.jsonl 3초 폴링. · biz-ttori Phase C 프리뷰 · 2026-07-10
-</footer>
+  <script>
+    // ── 가짜 이벤트 피드 (오늘 실제 있었던 일 기반) ──
+    const seedEvents = [
+      ["00:11", "📡 watcher", "mailbox-watcher 데몬 첫 기동"],
+      ["00:12", "📥 mail.in", "젬또리 → 설계 검토 의견 4건 도착"],
+      ["00:12", "🔔 discord", "#또리봇-대화 알림 전송 완료"],
+      ["00:15", "🔍 챗또리", "watcher.py 리뷰: High 1건 · Medium 2건"],
+      ["00:18", "⚙️ 클또리", "리뷰 반영 — 전송 실패 재시도 로직 추가"],
+      ["00:19", "✅ bot.done", "Phase A 완료 — 데몬 PID 20296 가동"],
+    ];
+    const liveEvents = [
+      ["🤖 클또리", "Phase B/C 설계 문서 작성 완료"],
+      ["📋 approval", "PM 결재 요청 2건 적재"],
+      ["📡 watcher", "우편함 이상 없음 — 폴링 계속"],
+      ["🎨 클또리", "대시보드 목업 렌더링 중…"],
+    ];
+    const feed = document.getElementById("feed");
+    function addFeed(ts, actor, msg, isNew) {
+      const li = document.createElement("li");
+      if (isNew) li.className = "new";
+      li.innerHTML = `<span class="ts">${ts}</span><span>${actor}</span><span style="color:var(--dim)">${msg}</span>`;
+      feed.prepend(li);
+    }
+    seedEvents.forEach(e => addFeed(e[0], e[1], e[2], false));
 
-<script>
-// ── 가짜 이벤트 피드 (오늘 실제 있었던 일 기반) ──
-const seedEvents = [
-  ["00:11", "📡 watcher", "mailbox-watcher 데몬 첫 기동"],
-  ["00:12", "📥 mail.in", "젬또리 → 설계 검토 의견 4건 도착"],
-  ["00:12", "🔔 discord", "#또리봇-대화 알림 전송 완료"],
-  ["00:15", "🔍 챗또리", "watcher.py 리뷰: High 1건 · Medium 2건"],
-  ["00:18", "⚙️ 클또리", "리뷰 반영 — 전송 실패 재시도 로직 추가"],
-  ["00:19", "✅ bot.done", "Phase A 완료 — 데몬 PID 20296 가동"],
-];
-const liveEvents = [
-  ["🤖 클또리", "Phase B/C 설계 문서 작성 완료"],
-  ["📋 approval", "PM 결재 요청 2건 적재"],
-  ["📡 watcher", "우편함 이상 없음 — 폴링 계속"],
-  ["🎨 클또리", "대시보드 목업 렌더링 중…"],
-];
-const feed = document.getElementById("feed");
-function addFeed(ts, actor, msg, isNew) {
-  const li = document.createElement("li");
-  if (isNew) li.className = "new";
-  li.innerHTML = `<span class="ts">${ts}</span><span>${actor}</span><span style="color:var(--dim)">${msg}</span>`;
-  feed.prepend(li);
-}
-seedEvents.forEach(e => addFeed(e[0], e[1], e[2], false));
+    let i = 0, cost = 1240;
+    setInterval(() => {
+      const e = liveEvents[i % liveEvents.length]; i++;
+      const now = new Date();
+      addFeed(now.toTimeString().slice(0, 5), e[0], e[1], true);
+      cost += Math.floor(Math.random() * 18);
+      document.getElementById("cost").textContent = cost.toLocaleString();
+      // 말풍선 토글로 "살아있는" 느낌
+      const bb = document.getElementById(["bb-claude", "bb-watcher", "bb-codex"][i % 3]);
+      document.querySelectorAll(".bubble").forEach(b => b.classList.remove("show"));
+      bb.classList.add("show");
+    }, 4000);
 
-let i = 0, cost = 1240;
-setInterval(() => {
-  const e = liveEvents[i % liveEvents.length]; i++;
-  const now = new Date();
-  addFeed(now.toTimeString().slice(0,5), e[0], e[1], true);
-  cost += Math.floor(Math.random() * 18);
-  document.getElementById("cost").textContent = cost.toLocaleString();
-  // 말풍선 토글로 "살아있는" 느낌
-  const bb = document.getElementById(["bb-claude","bb-watcher","bb-codex"][i % 3]);
-  document.querySelectorAll(".bubble").forEach(b => b.classList.remove("show"));
-  bb.classList.add("show");
-}, 4000);
-
-// ── 결재 버튼 (목업 동작) ──
-document.querySelectorAll(".approval").forEach(card => {
-  card.querySelector(".ok-btn").onclick = () => decide(card, "✅ 승인됨 — 이벤트 기록: approval.granted");
-  card.querySelector(".no-btn").onclick = () => decide(card, "↩ 반려됨 — 이벤트 기록: approval.rejected");
-});
-function decide(card, verdict) {
-  card.classList.add("decided");
-  card.querySelector(".verdict").textContent = verdict;
-  const left = document.querySelectorAll(".approval:not(.decided)").length;
-  document.getElementById("pending-count").textContent = `(${left})`;
-  addFeed(new Date().toTimeString().slice(0,5), "👤 PM", `${card.querySelector(".t").textContent} → ${verdict}`, true);
-}
-</script>
+    // ── 결재 버튼 (목업 동작) ──
+    document.querySelectorAll(".approval").forEach(card => {
+      card.querySelector(".ok-btn").onclick = () => decide(card, "✅ 승인됨 — 이벤트 기록: approval.granted");
+      card.querySelector(".no-btn").onclick = () => decide(card, "↩ 반려됨 — 이벤트 기록: approval.rejected");
+    });
+    function decide(card, verdict) {
+      card.classList.add("decided");
+      card.querySelector(".verdict").textContent = verdict;
+      const left = document.querySelectorAll(".approval:not(.decided)").length;
+      document.getElementById("pending-count").textContent = `(${left})`;
+      addFeed(new Date().toTimeString().slice(0, 5), "👤 PM", `${card.querySelector(".t").textContent} → ${verdict}`, true);
+    }
+  </script>
 </body>
+
 </html>

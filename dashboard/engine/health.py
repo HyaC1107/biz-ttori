@@ -74,17 +74,26 @@ def load_self_reports() -> dict[str, Any]:
 
 
 def report(bot: str, remaining: float, window: str = "",
-           resets: str = "", note: str = "") -> dict[str, Any]:
+           resets: str = "", note: str = "", windows: list[dict] = None) -> dict[str, Any]:
     """봇이 자기 체력을 보고한다. (긁어오는 게 아니라 **본인이 말해주는** 값)"""
     SELF_REPORT.parent.mkdir(parents=True, exist_ok=True)
     data = load_self_reports()
     rec = {
-        "remaining_pct": max(0, min(100, round(float(remaining)))),
-        "window": window or "?",
-        "resets_at": resets or None,
         "note": note or None,
         "reported_at": datetime.now(KST).isoformat(timespec="seconds"),
     }
+    if windows:
+        rec["windows"] = windows
+        if len(windows) > 0:
+            rec["remaining_pct"] = windows[0]["remaining_pct"]
+            rec["window"] = windows[0]["label"]
+            rec["resets_at"] = windows[0].get("resets_at")
+    else:
+        rem_pct = max(0, min(100, round(float(remaining))))
+        rec["remaining_pct"] = rem_pct
+        rec["window"] = window or "?"
+        rec["resets_at"] = resets or None
+
     data[bot] = rec
     tmp = SELF_REPORT.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -100,21 +109,43 @@ def _self_reported(bot: str) -> Optional[dict[str, Any]]:
         age_h = (datetime.now(KST) - datetime.fromisoformat(rec["reported_at"])).total_seconds() / 3600
     except (KeyError, ValueError):
         age_h = None
-    rem = rec["remaining_pct"]
-    return {
-        "source": "self",                       # ← 자동 실측과 구분해서 표시
+        
+    stale = bool(age_h is not None and age_h > SELF_STALE_HOURS)
+    result = {
+        "source": "self",
         "age_hours": round(age_h, 1) if age_h is not None else None,
-        "stale": bool(age_h is not None and age_h > SELF_STALE_HOURS),
-        "window": {
+        "stale": stale,
+        "note": rec.get("note"),
+        "reported_at": rec.get("reported_at"),
+    }
+    
+    if "windows" in rec:
+        windows_list = []
+        for w in rec["windows"]:
+            rem = w["remaining_pct"]
+            windows_list.append({
+                "label": w["label"],
+                "remaining_pct": rem,
+                "used_pct": 100 - rem,
+                "level": _level(rem),
+                "resets_at": w.get("resets_at")
+            })
+        result["windows"] = windows_list
+        if len(windows_list) > 0:
+            result["window"] = windows_list[0]
+    else:
+        rem = rec.get("remaining_pct", 100)
+        w = {
             "label": rec.get("window") or "?",
             "remaining_pct": rem,
             "used_pct": 100 - rem,
             "level": _level(rem),
             "resets_at": rec.get("resets_at"),
-        },
-        "note": rec.get("note"),
-        "reported_at": rec.get("reported_at"),
-    }
+        }
+        result["window"] = w
+        result["windows"] = [w]
+        
+    return result
 
 
 def _level(remaining: float) -> str:
@@ -252,7 +283,7 @@ def _agy() -> dict[str, Any]:
     if sr:
         h["measurable"] = True
         h["source"] = "self"
-        h["windows"] = [sr["window"]]
+        h["windows"] = sr["windows"]
         h["reported_at"] = sr["reported_at"]
         note = f"본인 보고 ({sr['reported_at'][5:16].replace('T',' ')})"
         if sr.get("note"):
@@ -294,7 +325,8 @@ def _agy() -> dict[str, Any]:
 
 
 def bots_health() -> dict[str, Any]:
-    bots = [_claude(), _codex(), _agy()]
+    # 챗또리(_codex)는 현재 미사용(보류)이라 체력판에서 제외한다. 재도입 시 _codex() 다시 추가.
+    bots = [_claude(), _agy()]
 
     # 자동 실측이 안 되는 봇은 **자기 보고**로 폴백 (어느 봇이든 가능)
     for b in bots:
@@ -305,7 +337,7 @@ def bots_health() -> dict[str, Any]:
             continue
         b["measurable"] = True
         b["source"] = "self"
-        b["windows"] = [sr["window"]]
+        b["windows"] = sr["windows"]
         b["reported_at"] = sr["reported_at"]
         note = f"본인 보고 ({sr['reported_at'][5:16].replace('T', ' ')})"
         if sr.get("note"):
@@ -333,11 +365,19 @@ if __name__ == "__main__":
     r.add_argument("--window", default="", help="한도 창 (예: 5시간, 일일)")
     r.add_argument("--resets", default="", help="리셋 시각 (예: 07-12 04:00)")
     r.add_argument("--note", default="", help="비고 (예: /usage 기준)")
+    r.add_argument("--windows-json", default="", help="여러 한도 창 정보의 JSON string (예: '[{\"label\": \"5시간\", \"remaining_pct\": 99}]')")
 
     a = ap.parse_args()
     if a.cmd == "report":
-        rec = report(a.bot, a.remaining, a.window, a.resets, a.note)
-        print(f"✅ {a.bot} 체력 보고 접수: {rec['remaining_pct']}% 남음"
-              f" ({rec['window']})" + (f" · 리셋 {rec['resets_at']}" if rec["resets_at"] else ""))
+        windows_list = None
+        if a.windows_json:
+            try:
+                windows_list = json.loads(a.windows_json)
+            except Exception as e:
+                print(f"❌ JSON 파싱 실패: {e}", file=sys.stderr)
+                sys.exit(1)
+        rec = report(a.bot, a.remaining, a.window, a.resets, a.note, windows=windows_list)
+        print(f"✅ {a.bot} 체력 보고 접수: {rec.get('remaining_pct')}% 남음"
+              f" ({rec.get('window')})" + (f" · 리셋 {rec['resets_at']}" if rec.get("resets_at") else ""))
     else:
         print(json.dumps(bots_health(), ensure_ascii=False, indent=2))

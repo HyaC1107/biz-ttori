@@ -39,6 +39,20 @@ def _find_root() -> Path:
 
 ROOT = _find_root()
 
+# ── OS별 관제 방식 (크로스플랫폼) ──────────────────────────────
+# 프로세스/포트를 읽는 방법은 OS마다 다르다. 아래 플래그로 한 번만 분기하고,
+# 각 함수(_scan / _cmdline / _start_time / _listening_ports)에서 OS별로 갈라진다.
+#
+#   • Linux   : /proc 파일시스템 + `ss -tlnp`      (이 저장소가 처음 돌던 환경)
+#   • macOS/BSD: `ps -axww` + `lsof -iTCP -sTCP:LISTEN`  (/proc·ss 둘 다 없음)
+#   • Windows : 미지원. 필요하면 `tasklist` / `Get-NetTCPConnection`(PowerShell)으로
+#               _scan()·_listening_ports()에 분기를 하나 더 추가하면 된다.
+#
+# 판정은 /proc 존재 여부로 한다 — /proc 이 있으면 Linux(WSL 포함)로 보고 그 경로를,
+# 없으면 macOS/BSD 경로(ps·lsof)를 쓴다. 다른 OS를 붙일 때 이 상수와 각 함수의
+# `if _IS_LINUX:` 분기만 손대면 된다.
+_IS_LINUX = Path("/proc").is_dir()
+
 # ── 알려진 프로세스 레지스트리 ─────────────────────────────────
 # match: cmdline 에 이 문자열이 모두 들어가면 해당 프로세스로 본다.
 #
@@ -129,20 +143,63 @@ REGISTRY: list[dict[str, Any]] = _load_registry()
 
 # ── /proc 스캔 ──────────────────────────────────────────────────
 def _cmdline(pid: int) -> str:
+    # Linux: /proc/<pid>/cmdline (NUL 구분 argv)
+    if _IS_LINUX:
+        try:
+            raw = Path(f"/proc/{pid}/cmdline").read_bytes()
+        except (OSError, PermissionError):
+            return ""
+        return raw.replace(b"\x00", b" ").decode("utf-8", "replace").strip()
+    # macOS/BSD: /proc 이 없으므로 ps 로 커맨드라인 한 줄을 뽑는다.
     try:
-        raw = Path(f"/proc/{pid}/cmdline").read_bytes()
-    except (OSError, PermissionError):
+        r = subprocess.run(["ps", "-p", str(pid), "-o", "command="],
+                           capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
         return ""
-    return raw.replace(b"\x00", b" ").decode("utf-8", "replace").strip()
+    return r.stdout.strip()
+
+
+def _parse_etime(s: str) -> Optional[int]:
+    """ps 의 elapsed time('[[dd-]hh:]mm:ss')을 초로 변환. Linux·BSD 공통 포맷."""
+    s = s.strip()
+    if not s:
+        return None
+    days = 0
+    if "-" in s:                       # dd-hh:mm:ss
+        d, s = s.split("-", 1)
+        try:
+            days = int(d)
+        except ValueError:
+            return None
+    try:
+        parts = [int(p) for p in s.split(":")]
+    except ValueError:
+        return None
+    if len(parts) == 3:                # hh:mm:ss
+        h, m, sec = parts
+    elif len(parts) == 2:              # mm:ss
+        h, m, sec = 0, parts[0], parts[1]
+    else:
+        return None
+    return days * 86400 + h * 3600 + m * 60 + sec
 
 
 def _start_time(pid: int) -> Optional[float]:
-    """프로세스 시작 시각(epoch)."""
+    """프로세스 시작 시각(epoch). uptime 계산용."""
+    # Linux: /proc/<pid> 의 stat ctime = 프로세스 생성 시각
+    if _IS_LINUX:
+        try:
+            return Path(f"/proc/{pid}").stat().st_ctime
+        except OSError:
+            return None
+    # macOS/BSD: /proc 이 없으므로 ps 의 경과시간(etime)에서 시작 epoch 을 역산한다.
     try:
-        st = Path(f"/proc/{pid}").stat()
-        return st.st_ctime
-    except OSError:
+        r = subprocess.run(["ps", "-p", str(pid), "-o", "etime="],
+                           capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
         return None
+    secs = _parse_etime(r.stdout)
+    return None if secs is None else time.time() - secs
 
 
 # 🔴 프로그램을 "언급만" 하는 프로세스(셸·grep·curl 등)를 실제 프로세스로 오인하면
@@ -169,11 +226,30 @@ def _scan() -> list[tuple[int, str]]:
     자기 종료는 stop()이 아니라 API의 is_self + confirm 으로 통제한다.
     """
     out = []
-    for entry in Path("/proc").iterdir():
-        if not entry.name.isdigit():
+    # Linux: /proc 디렉터리를 직접 순회
+    if _IS_LINUX:
+        for entry in Path("/proc").iterdir():
+            if not entry.name.isdigit():
+                continue
+            pid = int(entry.name)
+            cmd = _cmdline(pid)
+            if not cmd or _is_wrapper(cmd):
+                continue
+            out.append((pid, cmd))
+        return out
+    # macOS/BSD: /proc 이 없으므로 ps 한 번으로 전체 프로세스를 훑는다.
+    #   -a 모든 사용자 · -x 제어터미널 없는 데몬 포함 · -ww 커맨드 truncation 방지
+    #   출력: "<pid> <command…>" 한 줄씩
+    try:
+        r = subprocess.run(["ps", "-axww", "-o", "pid=,command="],
+                           capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return out
+    for line in r.stdout.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) != 2 or not parts[0].isdigit():
             continue
-        pid = int(entry.name)
-        cmd = _cmdline(pid)
+        pid, cmd = int(parts[0]), parts[1]
         if not cmd or _is_wrapper(cmd):
             continue
         out.append((pid, cmd))
@@ -181,19 +257,38 @@ def _scan() -> list[tuple[int, str]]:
 
 
 def _listening_ports() -> dict[int, int]:
-    """포트 → pid. ss 파싱 (psutil 없는 환경)."""
+    """LISTEN 중인 포트 → pid 매핑 (psutil 없는 환경 기준)."""
     ports: dict[int, int] = {}
+    # Linux: ss. 출력 예 `... 0.0.0.0:8787 ... users:(("python3",pid=123,fd=3))`
+    if _IS_LINUX:
+        try:
+            r = subprocess.run(["ss", "-tlnp"], capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.SubprocessError):
+            return ports
+        for line in r.stdout.splitlines():
+            if "LISTEN" not in line:
+                continue
+            m_port = re.search(r":(\d+)\s", line)
+            m_pid = re.search(r"pid=(\d+)", line)
+            if m_port and m_pid:
+                ports[int(m_port.group(1))] = int(m_pid.group(1))
+        return ports
+    # macOS/BSD: lsof. 출력 예
+    #   `python3.1 46881 user 3u IPv4 0x… 0t0 TCP 127.0.0.1:8787 (LISTEN)`
+    #   → 2번째 컬럼 = pid, NAME 끝의 ':<port> (LISTEN)' = 포트
     try:
-        r = subprocess.run(["ss", "-tlnp"], capture_output=True, text=True, timeout=5)
+        r = subprocess.run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN"],
+                           capture_output=True, text=True, timeout=5)
     except (OSError, subprocess.SubprocessError):
         return ports
     for line in r.stdout.splitlines():
         if "LISTEN" not in line:
             continue
-        m_port = re.search(r":(\d+)\s", line)
-        m_pid = re.search(r"pid=(\d+)", line)
-        if m_port and m_pid:
-            ports[int(m_port.group(1))] = int(m_pid.group(1))
+        fields = line.split()
+        m_port = re.search(r":(\d+)\s*\(LISTEN\)", line)
+        if len(fields) < 2 or not fields[1].isdigit() or not m_port:
+            continue
+        ports[int(m_port.group(1))] = int(fields[1])
     return ports
 
 
@@ -251,16 +346,28 @@ def list_procs() -> dict[str, Any]:
         known.append(entry)
 
     # 우리가 모르는 리스닝 포트 (뭐가 포트를 물고 있는지 PM이 볼 수 있게)
+    #
+    # ⚠️ macOS 는 로컬 리스너가 Linux 보다 훨씬 많다(IDE·브라우저 디버그·Adobe·보안에이전트
+    #    등이 임시 고포트를 수십 개 연다). 전부 나열하면 패널이 노이즈로 도배되고 정작 내
+    #    개발서버가 안 보인다. 그래서 **임시(ephemeral) 포트 대역은 숨긴다** — 그 대역은
+    #    앱이 매번 랜덤으로 잡았다 버리는 자리라 사람이 관리할 대상이 아니다.
+    #    개발서버는 3000·5173·8080·8081 처럼 낮고 외우는 포트를 쓰므로 그대로 보인다.
+    #    (기준: IANA/BSD 동적 포트 시작점 49152. 이 값만 바꾸면 노출 폭을 조절할 수 있다.)
+    EPHEMERAL_MIN = 49152
     others = []
+    hidden = 0
     for port, pid in sorted(ports.items()):
         if pid in claimed_pids:
+            continue
+        if port >= EPHEMERAL_MIN:          # 임시 대역 = 관리 불가한 일회성 리스너 → 숨김
+            hidden += 1
             continue
         cmd = _cmdline(pid)
         if not cmd:
             continue
         others.append({"port": port, "pid": pid, "cmd": cmd[:90]})
 
-    return {"known": known, "other_ports": others}
+    return {"known": known, "other_ports": others, "hidden_ephemeral": hidden}
 
 
 # ── 종료 ────────────────────────────────────────────────────────
@@ -294,6 +401,43 @@ def stop(key: str) -> dict[str, Any]:
 
     return {"ok": True, "stopped": targets, "force_killed": still,
             "name": spec["name"]}
+
+
+# ── 기동 ────────────────────────────────────────────────────────
+def start(key: str) -> dict[str, Any]:
+    """레지스트리에 있고 start 명령이 정의된 프로세스만 (재)기동한다.
+
+    ## 안전 설계 (stop 과 대칭)
+    - **화이트리스트 전용.** REGISTRY 키만 기동 가능 — 임의 명령 실행 경로는 없다.
+    - start 문자열은 내장(board=_serve_cmd) 또는 company/procs.json(신뢰 로컬 설정)에서
+      온다. 원래 UI가 "터미널에서 이 명령을 실행하라"고 그대로 안내하던 것과 **같은
+      신뢰수준**이다 (복붙 실행을 버튼으로 옮긴 것).
+    - **이미 떠 있으면 중복 기동 금지** — 포트 충돌·중복 데몬을 막는다. board(is_self)는
+      serve.py 자신이 스캔에 잡히므로 서버가 살아 있는 한 항상 already_running 이다.
+    - 백그라운드(start_new_session)로 띄워 요청이 끝나도 살아 있게 한다. cwd=ROOT 고정.
+    - 기동 로그는 /tmp/biz-ttori-proc-<key>.log 로 남겨 안 뜬 이유를 추적할 수 있게 한다.
+    """
+    spec = next((s for s in REGISTRY if s["key"] == key), None)
+    if not spec:
+        return {"ok": False, "error": f"알 수 없는 프로세스: {key}"}   # 화이트리스트 밖
+    cmd = spec.get("start")
+    if not cmd:
+        return {"ok": False, "error": f"{spec['name']}: 시작 명령(start)이 정의돼 있지 않다",
+                "name": spec["name"]}
+
+    if _match_pids(spec):          # 이미 떠 있음 — 중복 기동 안 함
+        return {"ok": True, "already_running": True, "name": spec["name"]}
+
+    safe = re.sub(r"[^A-Za-z0-9_.-]", "_", key)
+    logpath = f"/tmp/biz-ttori-proc-{safe}.log"
+    try:
+        logf = open(logpath, "ab")
+        subprocess.Popen(["bash", "-c", cmd], cwd=str(ROOT),
+                         start_new_session=True, stdout=logf, stderr=logf)
+    except (OSError, subprocess.SubprocessError) as e:
+        return {"ok": False, "error": f"기동 실패: {e}", "name": spec["name"]}
+    return {"ok": True, "started": True, "name": spec["name"],
+            "cmd": cmd, "log": logpath}
 
 
 if __name__ == "__main__":

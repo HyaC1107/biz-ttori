@@ -1,0 +1,16 @@
+{
+  "_comment": "3D 사무실(dashboard3d.html) 테마/가구 설정. 이 파일을 고치면 15초 내 반영(새로고침 불필요). 현재 테마=화사한 밝은 컬러 오피스.",
+  "colors": {
+    "floor": "#f4f0e8",
+    "wall": "#eaf3ff",
+    "trim": "#8fc0ff",
+    "plinth": "#dcd6c8"
+  },
+  "furniture": {
+    "plants": true,
+    "sofa": true,
+    "waterCooler": true,
+    "noticeBoard": true,
+    "deptExtras": true
+  }
+}

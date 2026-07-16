@@ -1,782 +1,1324 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
-<meta charset="UTF-8">
-<title>또리 주식회사 — 3D 관제 (목업 v2)</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { overflow: hidden; background: #0f1220; font-family: "Pretendard", monospace; color: #e8eaf6; }
-  #scene { position: fixed; inset: 0; }
-  .hud {
-    position: fixed; background: rgba(24,28,48,.88); border: 1px solid #2c3358;
-    border-radius: 10px; padding: 12px; backdrop-filter: blur(4px); font-size: 12px;
-  }
-  #title { top: 14px; left: 14px; }
-  #title h1 { font-size: 15px; } #title .lv { color: #ffd166; font-size: 11px; }
-  #title .hint { color: #8a91b4; font-size: 10px; margin-top: 4px; }
-  #feedbox { right: 14px; top: 14px; width: 280px; }
-  #feedbox h2, #apprbox h2 { font-size: 11px; color: #8a91b4; letter-spacing: 2px; margin-bottom: 8px; }
-  #feed { list-style: none; max-height: 200px; overflow-y: auto; }
-  #feed li { font-size: 10px; padding: 4px 2px; border-bottom: 1px dashed #2c3358; }
-  #feed li .ts { color: #8a91b4; margin-right: 6px; font-size: 9px; }
-  #feed li.new { background: #232a4d; }
-  #apprbox { right: 14px; bottom: 14px; width: 280px; }
-  .appr { background: #1f2440; border: 1px solid #2c3358; border-radius: 8px; padding: 8px; margin-bottom: 6px; }
-  .appr .t { font-size: 11px; margin-bottom: 6px; }
-  .appr button { padding: 4px 10px; font-size: 10px; border: none; border-radius: 5px; cursor: pointer; margin-right: 5px; font-family: inherit; }
-  .ok { background: #6ee7a0; } .no { background: #ff8fa3; }
-  .appr.done { opacity: .45; } .appr.done button { display: none; }
-  .appr .vd { font-size: 10px; color: #ffd166; }
-  #cost { bottom: 14px; left: 14px; color: #ffd166; }
-  #debatebox { left: 14px; bottom: 64px; width: 300px; display: none; }
-  #debatebox h2 { font-size: 11px; color: #8a91b4; letter-spacing: 2px; margin-bottom: 6px; }
-  /* 봇 체력 패널 — /api/health 실측만. 없는 데이터는 '측정 불가' */
-  #hpbox { right: 14px; top: 300px; width: 280px; }
-  #hpbox h2 { font-size: 11px; color: #8a91b4; letter-spacing: 2px; margin-bottom: 8px; }
-  #hps3d { list-style: none; margin: 0; padding: 0; }
-  #hps3d li { padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
-  #hps3d .hn3 { display: block; font-size: 11.5px; font-weight: 700; color: #d8dcf0; margin-bottom: 3px; }
-  #hps3d .ht3 { display: flex; align-items: center; gap: 6px; }
-  #hps3d .hbar3 { flex: 1; height: 7px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; }
-  #hps3d .hbar3 i { display: block; height: 100%; border-radius: 4px; transition: width .4s; }
-  #hps3d b { font-size: 11px; font-variant-numeric: tabular-nums; min-width: 32px; text-align: right; }
-  #hps3d em { display: block; font-style: normal; font-size: 9px; color: #8a91b4; margin-top: 2px; }
-  #hps3d .hna3 { font-size: 10px; color: #8a91b4; }
+  <meta charset="UTF-8">
+  <title>AI agent — 3D 관제 (목업 v2)</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-  /* 태스크 패널 — 상태는 서버(/api/tasks) 집계, 여기선 렌더만 */
-  #taskbox { left: 14px; top: 96px; width: 288px; max-height: 40vh; overflow-y: auto; }
-  #taskbox h2 { font-size: 11px; color: #8a91b4; letter-spacing: 2px; margin-bottom: 8px; }
-  #tasks { list-style: none; margin: 0; padding: 0; }
-  #tasks li { display: flex; gap: 6px; align-items: flex-start; padding: 5px 0;
-              border-bottom: 1px solid rgba(255,255,255,.06); font-size: 11px; line-height: 1.35; }
-  #tasks li.stuck { border-left: 2px solid #ff8a3d; padding-left: 5px; }
-  #tasks .tid { font-family: 'Courier New', monospace; font-size: 10px; color: #8a91b4; flex: 0 0 auto; }
-  #tasks .tt { flex: 1; color: #d8dcf0; }
-  #tasks .tw { font-size: 9.5px; color: #ff8a3d; }
-  #debate-topic { font-size: 11px; color: #ffd166; margin-bottom: 6px; }
-  #debate-log { list-style: none; font-size: 10px; line-height: 1.6; color: #c8cde8; }
-  #debate-log li { border-bottom: 1px dashed #2c3358; padding: 3px 0; }
-</style>
+    body {
+      overflow: hidden;
+      background: #060814;
+      font-family: "Pretendard", monospace;
+      color: #dbeafe;
+    }
+
+    #scene {
+      position: fixed;
+      inset: 0;
+    }
+
+    /* 관제실 스크린 — 유리에 각인된 홀로그램 패널(Glassmorphism + 네온 엣지) */
+    .hud {
+      position: fixed;
+      background: linear-gradient(160deg, rgba(38, 54, 92, .58), rgba(26, 38, 68, .64));
+      border: 1px solid rgba(120, 180, 255, .4);
+      border-radius: 10px;
+      padding: 12px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 6px 22px rgba(40, 70, 130, .28),
+        0 0 18px rgba(120, 180, 255, .16);
+      font-size: 12px;
+    }
+
+    /* 관제실 스크롤바 — 얇고 네온 */
+    .hud ::-webkit-scrollbar,
+    #taskbox::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .hud ::-webkit-scrollbar-thumb,
+    #taskbox::-webkit-scrollbar-thumb {
+      background: rgba(68, 136, 255, .35);
+      border-radius: 3px;
+    }
+
+    .hud ::-webkit-scrollbar-track,
+    #taskbox::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #title {
+      top: 14px;
+      left: 14px;
+    }
+
+    #title h1 {
+      font-size: 15px;
+      text-shadow: 0 0 12px rgba(56, 160, 255, .55);
+    }
+
+    #title .lv {
+      color: #ffd166;
+      font-size: 11px;
+    }
+
+    #title .hint {
+      color: #adb3d6;
+      font-size: 10px;
+      margin-top: 4px;
+    }
+
+    #feedbox {
+      right: 14px;
+      top: 14px;
+      width: 280px;
+    }
+
+    #feedbox h2,
+    #apprbox h2 {
+      font-size: 11px;
+      color: #5fd0ff;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      text-shadow: 0 0 8px rgba(56, 160, 255, .4);
+    }
+
+    #feed {
+      list-style: none;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    #feed li {
+      font-size: 10px;
+      padding: 4px 2px;
+      border-bottom: 1px dashed #2c3358;
+    }
+
+    #feed li .ts {
+      color: #adb3d6;
+      margin-right: 6px;
+      font-size: 9px;
+    }
+
+    #feed li.new {
+      background: rgba(56, 160, 255, .18);
+      box-shadow: inset 2px 0 0 #38a0ff;
+    }
+
+    #apprbox {
+      right: 14px;
+      bottom: 14px;
+      width: 280px;
+    }
+
+    .appr {
+      background: rgba(20, 30, 56, .6);
+      border: 1px solid rgba(68, 136, 255, .28);
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 6px;
+    }
+
+    .appr .t {
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+
+    .appr button {
+      padding: 4px 10px;
+      font-size: 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-right: 5px;
+      font-family: inherit;
+    }
+
+    .ok {
+      background: #6ee7a0;
+    }
+
+    .no {
+      background: #ff8fa3;
+    }
+
+    .appr.done {
+      opacity: .45;
+    }
+
+    .appr.done button {
+      display: none;
+    }
+
+    .appr .vd {
+      font-size: 10px;
+      color: #ffd166;
+    }
+
+    #cost {
+      bottom: 14px;
+      left: 14px;
+      color: #ffd166;
+    }
+
+    #debatebox {
+      left: 14px;
+      bottom: 64px;
+      width: 300px;
+      display: none;
+    }
+
+    #debatebox h2 {
+      font-size: 11px;
+      color: #5fd0ff;
+      letter-spacing: 2px;
+      text-shadow: 0 0 8px rgba(56, 160, 255, .35);
+      margin-bottom: 6px;
+    }
+
+    /* 봇 체력 패널 — /api/health 실측만. 없는 데이터는 '측정 불가' */
+    #hpbox {
+      right: 14px;
+      top: 300px;
+      width: 280px;
+    }
+
+    #hpbox h2 {
+      font-size: 11px;
+      color: #5fd0ff;
+      letter-spacing: 2px;
+      text-shadow: 0 0 8px rgba(56, 160, 255, .35);
+      margin-bottom: 8px;
+    }
+
+    #hps3d {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    #hps3d li {
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .06);
+    }
+
+    #hps3d .hn3 {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #d8dcf0;
+      margin-bottom: 3px;
+    }
+
+    #hps3d .ht3 {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #hps3d .hbar3 {
+      flex: 1;
+      height: 7px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, .1);
+      overflow: hidden;
+    }
+
+    #hps3d .hbar3 i {
+      display: block;
+      height: 100%;
+      border-radius: 4px;
+      transition: width .4s;
+    }
+
+    #hps3d b {
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      min-width: 32px;
+      text-align: right;
+    }
+
+    #hps3d em {
+      display: block;
+      font-style: normal;
+      font-size: 9px;
+      color: #adb3d6;
+      margin-top: 2px;
+    }
+
+    #hps3d .hna3 {
+      font-size: 10px;
+      color: #adb3d6;
+    }
+
+    /* 태스크 패널 — 상태는 서버(/api/tasks) 집계, 여기선 렌더만 */
+    #taskbox {
+      left: 14px;
+      top: 128px;
+      width: 288px;
+      max-height: 40vh;
+      overflow-y: auto;
+    }
+
+    #taskbox h2 {
+      font-size: 11px;
+      color: #5fd0ff;
+      letter-spacing: 2px;
+      text-shadow: 0 0 8px rgba(56, 160, 255, .35);
+      margin-bottom: 8px;
+    }
+
+    #tasks {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    #tasks li {
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .06);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    #tasks li.stuck {
+      border-left: 2px solid #ff8a3d;
+      padding-left: 5px;
+    }
+
+    #tasks .tid {
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      color: #adb3d6;
+      flex: 0 0 auto;
+    }
+
+    #tasks .tt {
+      flex: 1;
+      color: #d8dcf0;
+    }
+
+    #tasks .tw {
+      font-size: 9.5px;
+      color: #ff8a3d;
+    }
+
+    #debate-topic {
+      font-size: 11px;
+      color: #ffd166;
+      margin-bottom: 6px;
+    }
+
+    #debate-log {
+      list-style: none;
+      font-size: 10px;
+      line-height: 1.6;
+      color: #c8cde8;
+    }
+
+    #debate-log li {
+      border-bottom: 1px dashed #2c3358;
+      padding: 3px 0;
+    }
+  </style>
 </head>
+
 <body>
-<div id="scene"></div>
+  <div id="scene"></div>
 
-<div class="hud" id="title">
-  <h1>🏢 또리 주식회사 <span class="lv" id="mode">3D — DEMO</span> <a href="board.html" style="font-size:11px;color:#7cc4ff;text-decoration:none">📊 현황판 →</a></h1>
-  <div class="hint">드래그 = 회전 · 휠 = 줌 · LIVE는 ttori 루트에서 <code>python3 -m http.server 8787</code> 후 접속</div>
-  <div style="margin-top:7px">
-    <label for="projsel" style="font-size:10px;color:#8a91b4;letter-spacing:1px">PROJECT</label>
-    <select id="projsel" style="background:#1f2440;color:#e8eaf6;border:1px solid #2c3358;border-radius:6px;
+  <div class="hud" id="title">
+    <h1>🏢 AI agent <span class="lv" id="mode">3D — DEMO</span> <a href="board.html"
+        style="font-size:11px;color:#7cc4ff;text-decoration:none">📊 현황판 →</a></h1>
+    <div class="hint">드래그 = 회전 · 휠 = 줌 · LIVE는 ttori 루트에서 <code>python3 -m http.server 8787</code> 후 접속</div>
+    <div style="margin-top:7px">
+      <label for="projsel" style="font-size:10px;color:#adb3d6;letter-spacing:1px">PROJECT</label>
+      <select id="projsel" style="background:#1f2440;color:#e8eaf6;border:1px solid #2c3358;border-radius:6px;
         font-size:11px;padding:3px 6px;font-family:inherit;max-width:200px">
-      <option value="all">전체</option>
-    </select>
+        <option value="all">전체</option>
+      </select>
+    </div>
   </div>
-</div>
-<div class="hud" id="feedbox"><h2>📡 실시간 피드</h2><ul id="feed"></ul></div>
-<div class="hud" id="apprbox">
-  <h2>📋 결재함</h2>
-  <div id="apprs">
-  <div class="appr"><div class="t">Phase B 설계안 승인</div><button class="ok">✅ 승인</button><button class="no">↩ 반려</button><span class="vd"></span></div>
-  <div class="appr"><div class="t">Phase B 첫 스프린트 착수</div><button class="ok">✅ 승인</button><button class="no">↩ 반려</button><span class="vd"></span></div>
+  <div class="hud" id="feedbox">
+    <h2>📡 실시간 피드</h2>
+    <ul id="feed"></ul>
   </div>
-</div>
-<div class="hud" id="debatebox">
-  <h2>🏛️ 회의실 — DEBATE</h2>
-  <div id="debate-topic"></div>
-  <ul id="debate-log"></ul>
-</div>
-<div class="hud" id="taskbox">
-  <h2>🗂️ 태스크 <span id="task-sum" style="font-size:10px;color:#8a91b4;font-weight:400"></span></h2>
-  <ul id="tasks"></ul>
-</div>
-<div class="hud" id="hpbox">
-  <h2>🔋 봇 체력 — 구독 한도</h2>
-  <ul id="hps3d"></ul>
-</div>
-<div class="hud" id="cost">🪙 오늘 토큰 <b id="c">—</b> <span id="c2" style="color:#8a91b4"></span></div>
+  <div class="hud" id="apprbox">
+    <h2>📋 결재함</h2>
+    <div id="apprs">
+      <div class="appr">
+        <div class="t">Phase B 설계안 승인</div><button class="ok">✅ 승인</button><button class="no">↩ 반려</button><span
+          class="vd"></span>
+      </div>
+      <div class="appr">
+        <div class="t">Phase B 첫 스프린트 착수</div><button class="ok">✅ 승인</button><button class="no">↩ 반려</button><span
+          class="vd"></span>
+      </div>
+    </div>
+  </div>
+  <div class="hud" id="debatebox">
+    <h2>🏛️ 회의실 — DEBATE</h2>
+    <div id="debate-topic"></div>
+    <ul id="debate-log"></ul>
+  </div>
+  <div class="hud" id="taskbox">
+    <h2>🗂️ 태스크 <span id="task-sum" style="font-size:10px;color:#adb3d6;font-weight:400"></span></h2>
+    <ul id="tasks"></ul>
+  </div>
+  <div class="hud" id="hpbox">
+    <h2>🔋 봇 체력 — 구독 한도</h2>
+    <ul id="hps3d"></ul>
+  </div>
+  <div class="hud" id="cost">🪙 오늘 토큰 <b id="c">—</b> <span id="c2" style="color:#adb3d6"></span></div>
 
-<script src="company-common.js"></script>
-<script type="importmap">
+  <script src="company-common.js"></script>
+  <script type="importmap">
 { "imports": {
   "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
   "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
 } }
 </script>
-<script type="module">
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-// ── 씬 기본 ──────────────────────────────────────────────
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0f1220);
-scene.fog = new THREE.Fog(0x0f1220, 30, 70);
-const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, .1, 200);
-camera.position.set(16, 16, 16);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-document.getElementById("scene").appendChild(renderer.domElement);
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 0, 0); controls.maxPolarAngle = Math.PI/2.2;
-controls.enableDamping = true;
+    // ── 씬 기본 ──────────────────────────────────────────────
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xdcebff);            // 화사한 맑은 하늘
+    scene.fog = new THREE.Fog(0xdcebff, 42, 95);
+    const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .1, 200);
+    camera.position.set(16, 16, 16);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    document.getElementById("scene").appendChild(renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0, 0); controls.maxPolarAngle = Math.PI / 2.2;
+    controls.enableDamping = true;
 
-scene.add(new THREE.AmbientLight(0xcdd2e8, .85));   // 흰 벽이 살도록 앰비언트 상향
-const sun = new THREE.DirectionalLight(0xfff2cc, 1.0);
-sun.position.set(10, 18, 8); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = sun.shadow.camera.bottom = -20;
-sun.shadow.camera.right = sun.shadow.camera.top = 20;
-scene.add(sun);
+    // 화사한 하이키 조명: 앰비언트를 밝게 깔고 + 하늘/바닥 반사(Hemisphere) 부드러운 필 +
+    // 따뜻한 햇살 키라이트. 부서/원탁엔 저비용 컬러 포인트라이트(그림자 OFF)로 산뜻한 색감.
+    scene.add(new THREE.AmbientLight(0xffffff, .95));            // 밝은 중립 앰비언트
+    scene.add(new THREE.HemisphereLight(0xcfe6ff, 0xfff2da, .7)); // 하늘=맑은 파랑, 바닥=따뜻한 반사
+    const sun = new THREE.DirectionalLight(0xfff4e0, 1.15);      // 따뜻한 햇살 키라이트
+    sun.position.set(10, 18, 8); sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = sun.shadow.camera.bottom = -20;
+    sun.shadow.camera.right = sun.shadow.camera.top = 20;
+    scene.add(sun);
+    // 산뜻한 컬러 악센트 — 은은하게 색만 얹는 저비용 포인트라이트(그림자 없음)
+    const neonLights = [
+      new THREE.PointLight(0x7cc4ff, .55, 22, 2),   // 중앙 원탁 — 하늘색
+      new THREE.PointLight(0xffd166, .5, 20, 2),    // 좌측 작업구역 — 따뜻한 노랑
+      new THREE.PointLight(0x8affc0, .45, 20, 2),   // 우측 작업구역 — 민트
+    ];
+    neonLights[0].position.set(0, 6, 8);
+    neonLights[1].position.set(-8, 6, -5);
+    neonLights[2].position.set(6, 6, 2);
+    for (const pl of neonLights) scene.add(pl);
 
-// ── 사무실 건물: 흰 바닥 + 외벽/내벽 (PM: "회사건물답게 흰색+벽") ──
-const floor = new THREE.Mesh(
-  new THREE.BoxGeometry(26, .5, 20),
-  new THREE.MeshStandardMaterial({ color: 0xe9e7e0, roughness: .95 }));
-floor.position.y = -.25; floor.receiveShadow = true; scene.add(floor);
-// 건물 기단(테두리)
-const plinth = new THREE.Mesh(
-  new THREE.BoxGeometry(27.2, .3, 21.2),
-  new THREE.MeshStandardMaterial({ color: 0xcfcdc4 }));
-plinth.position.y = -.45; plinth.receiveShadow = true; scene.add(plinth);
+    // ── 사무실 건물: 흰 바닥 + 외벽/내벽 (PM: "회사건물답게 흰색+벽") ──
+    const floor = new THREE.Mesh(
+      new THREE.BoxGeometry(26, .5, 20),
+      new THREE.MeshStandardMaterial({ color: 0xf4f0e8, roughness: .85 }));  // 밝은 바닥
+    floor.position.y = -.25; floor.receiveShadow = true; scene.add(floor);
+    // 은은한 모눈 그리드 — 밝은 바닥 위 부드러운 하늘색 라인(살짝 위에 깔아 z-fighting 방지)
+    const grid = new THREE.GridHelper(26, 52, 0x8fb4e8, 0xcdd9ec);
+    grid.position.y = .02; grid.material.transparent = true; grid.material.opacity = .4;
+    scene.add(grid);
+    // 건물 기단(테두리) — 밝은 스톤
+    const plinth = new THREE.Mesh(
+      new THREE.BoxGeometry(27.2, .3, 21.2),
+      new THREE.MeshStandardMaterial({ color: 0xdcd6c8, roughness: .9 }));
+    plinth.position.y = -.45; plinth.receiveShadow = true; scene.add(plinth);
 
-const wallMat = new THREE.MeshStandardMaterial({ color: 0xf7f6f2, roughness: .9 });
-const trimMat = new THREE.MeshStandardMaterial({ color: 0xdedbd2 });
-const WALL_H = 2.6, WALL_T = .3;
-function wall(cx, cz, w, d, h = WALL_H) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
-  m.position.set(cx, h/2, cz); m.castShadow = true; m.receiveShadow = true;
-  scene.add(m);
-  const cap = new THREE.Mesh(new THREE.BoxGeometry(w + .06, .12, d + .06), trimMat);
-  cap.position.set(cx, h + .06, cz); scene.add(cap);   // 벽 상단 몰딩
-}
-// 외벽 4면 — 남쪽(정문) 가운데 3폭 개구부
-wall(0, -10, 26 + WALL_T, WALL_T);                 // 북
-wall(-13, 0, WALL_T, 20);                          // 서
-wall(13, 0, WALL_T, 20);                           // 동
-wall(-7.25, 10, 11.5, WALL_T);                     // 남-좌
-wall(7.25, 10, 11.5, WALL_T);                      // 남-우 (가운데 3 = 정문)
-// 내벽 (부서 파티션, 문 틈 포함, 낮은 벽 h=2)
-wall(-3, -8.5, WALL_T, 3, 2);                      // hq|dev 앞쪽
-wall(-3, -2.75, WALL_T, 4.5, 2);                   // hq|dev 뒤쪽 (틈 = 문)
-wall(-11.25, -.5, 3.5, WALL_T, 2);                 // 앞|뒤 구역 가로벽 (3분절)
-wall(-3.5, -.5, 6, WALL_T, 2);
-wall(5, -.5, 3, WALL_T, 2);
-wall(-3, 2, WALL_T, 3, 2);                         // qa|research 앞쪽
-wall(-3, 8.25, WALL_T, 3.5, 2);                    // qa|research 뒤쪽
-wall(8.5, -5.5, WALL_T, 9, 2);                     // ops 복도벽 (가운데 문)
-wall(8.5, 5.5, WALL_T, 9, 2);
+    // 벽/몰딩 — 밝은 프로스티드 글라스(반투명, 산뜻) + 산뜻한 하늘색 몰딩
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0xeaf3ff, transparent: true, opacity: .55, roughness: .6, side: THREE.DoubleSide });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x8fc0ff, roughness: .6 });
+    const WALL_H = 2.6, WALL_T = .3;
+    const wallEdgeMat = new THREE.LineBasicMaterial({ color: 0x9ec5ff, transparent: true, opacity: .5 });
+    function wall(cx, cz, w, d, h = WALL_H) {
+      const geo = new THREE.BoxGeometry(w, h, d);
+      const m = new THREE.Mesh(geo, wallMat);
+      m.position.set(cx, h / 2, cz); m.castShadow = true; m.receiveShadow = true;
+      scene.add(m);
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), wallEdgeMat);  // 네온 윤곽선
+      edges.position.copy(m.position); scene.add(edges);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(w + .06, .12, d + .06), trimMat);
+      cap.position.set(cx, h + .06, cz); scene.add(cap);   // 벽 상단 몰딩(네온)
+    }
+    // 외벽 4면 — 남쪽(정문) 가운데 3폭 개구부
+    wall(0, -10, 26 + WALL_T, WALL_T);                 // 북
+    wall(-13, 0, WALL_T, 20);                          // 서
+    wall(13, 0, WALL_T, 20);                           // 동
+    wall(-7.25, 10, 11.5, WALL_T);                     // 남-좌
+    wall(7.25, 10, 11.5, WALL_T);                      // 남-우 (가운데 3 = 정문)
+    // 내벽 (부서 파티션, 문 틈 포함, 낮은 벽 h=2)
+    wall(-3, -8.5, WALL_T, 3, 2);                      // hq|dev 앞쪽
+    wall(-3, -2.75, WALL_T, 4.5, 2);                   // hq|dev 뒤쪽 (틈 = 문)
+    wall(-11.25, -.5, 3.5, WALL_T, 2);                 // 앞|뒤 구역 가로벽 (3분절)
+    wall(-3.5, -.5, 6, WALL_T, 2);
+    wall(5, -.5, 3, WALL_T, 2);
+    wall(-3, 2, WALL_T, 3, 2);                         // qa|research 앞쪽
+    wall(-3, 8.25, WALL_T, 3.5, 2);                    // qa|research 뒤쪽
+    wall(8.5, -5.5, WALL_T, 9, 2);                     // ops 복도벽 (가운데 문)
+    wall(8.5, 5.5, WALL_T, 9, 2);
 
-const DEPTS = [
-  { slug:"hq",       name:"👑 경영지원", jsonName:"경영지원", color:0xffd166, x:-8,  z:-5, w:8, d:8 },
-  { slug:"dev",      name:"💻 개발부",   jsonName:"개발부",   color:0x7cc4ff, x: 2,  z:-5, w:8, d:8 },
-  { slug:"qa",       name:"✅ 품질부",   jsonName:"품질부",   color:0x6ee7a0, x:-8,  z: 4, w:8, d:7 },
-  { slug:"research", name:"📚 리서치부", jsonName:"리서치부", color:0xc4a2ff, x: 2,  z: 4, w:8, d:7 },
-  { slug:"ops",      name:"📮 총무부",   jsonName:"총무부",   color:0xff8fa3, x:10.5,z: 0, w:4, d:16 },
-];
-// 신설 부서용 여유 자리 (정문 앞 홀 양옆 — 가운데는 회의실) — 소진되면 3D 표시 생략(현황판엔 존재)
-const SPARE_SLOTS = [
-  { x:-9, z:8.7, w:6, d:2.2 }, { x:6, z:8.7, w:4.5, d:2.2 },
-];
-function makeLabel(text, scale=1) {
-  const cv = document.createElement("canvas"); cv.width = 512; cv.height = 128;
-  const g = cv.getContext("2d");
-  g.font = "bold 56px Pretendard, sans-serif"; g.textAlign = "center";
-  g.fillStyle = "#fff"; g.strokeStyle = "rgba(0,0,0,.7)"; g.lineWidth = 8;
-  g.strokeText(text, 256, 78); g.fillText(text, 256, 78);
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
-  sp.scale.set(4*scale, 1*scale, 1);
-  return sp;
-}
-/* ── 봇 머리 위 HP바 (구독 한도 잔량) ──────────────────────────
-   /api/health 가 실측을 주는 봇(클또리·챗또리)만 게이지를 그린다.
-   측정 불가한 봇(젬또리)은 '?'로 두고 가짜 게이지를 만들지 않는다. */
-function makeHpBar() {
-  const cv = document.createElement("canvas"); cv.width = 256; cv.height = 64;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
-  sp.scale.set(2.0, 0.5, 1);
-  sp.userData.cv = cv;
-  sp.visible = false;
-  return sp;
-}
+    const DEPTS = [
+      { slug: "hq", name: "👑 경영지원", jsonName: "경영지원", color: 0xffd166, x: -8, z: -5, w: 8, d: 8 },
+      { slug: "dev", name: "💻 개발부", jsonName: "개발부", color: 0x7cc4ff, x: 2, z: -5, w: 8, d: 8 },
+      { slug: "qa", name: "✅ 품질부", jsonName: "품질부", color: 0x6ee7a0, x: -8, z: 4, w: 8, d: 7 },
+      { slug: "research", name: "📚 리서치부", jsonName: "리서치부", color: 0xc4a2ff, x: 2, z: 4, w: 8, d: 7 },
+      { slug: "ops", name: "📮 총무부", jsonName: "총무부", color: 0xff8fa3, x: 10.5, z: 0, w: 4, d: 16 },
+    ];
+    // 신설 부서용 여유 자리 (정문 앞 홀 양옆 — 가운데는 회의실) — 소진되면 3D 표시 생략(현황판엔 존재)
+    const SPARE_SLOTS = [
+      { x: -9, z: 8.7, w: 6, d: 2.2 }, { x: 6, z: 8.7, w: 4.5, d: 2.2 },
+    ];
+    function makeLabel(text, scale = 1) {
+      const cv = document.createElement("canvas"); cv.width = 512; cv.height = 128;
+      const g = cv.getContext("2d");
+      g.font = "bold 56px Pretendard, sans-serif"; g.textAlign = "center";
+      g.fillStyle = "#fff"; g.strokeStyle = "rgba(0,0,0,.7)"; g.lineWidth = 8;
+      g.strokeText(text, 256, 78); g.fillText(text, 256, 78);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false
+      }));
+      sp.scale.set(4 * scale, 1 * scale, 1);
+      return sp;
+    }
+    /* 죽은 표정(토큰 소진) — ✕_✕ 눈 + 입 + 입가 피 한 줄을 얼굴 앞 평면에 그린다.
+       스프라이트가 아니라 PlaneGeometry라서 머리에 '고정'된다(카메라 따라 안 돎).
+       봇이 누우면 그룹과 함께 회전해 얼굴이 위를 보게 되므로 자세와도 맞는다. */
+    function makeDeadFace(size = 1) {
+      const cv = document.createElement("canvas"); cv.width = 256; cv.height = 256;
+      const g = cv.getContext("2d");
+      g.lineCap = "round"; g.lineJoin = "round";
+      // ✕ 눈 두 개
+      g.strokeStyle = "#2a2a2a"; g.lineWidth = 13;
+      const drawX = (cx, cy, r) => {
+        g.beginPath();
+        g.moveTo(cx - r, cy - r); g.lineTo(cx + r, cy + r);
+        g.moveTo(cx + r, cy - r); g.lineTo(cx - r, cy + r);
+        g.stroke();
+      };
+      drawX(84, 104, 20); drawX(172, 104, 20);
+      // 입 (살짝 벌린 짧은 선)
+      g.lineWidth = 10;
+      g.beginPath(); g.moveTo(104, 170); g.lineTo(152, 170); g.stroke();
+      // 입가에서 흐르는 피 한 줄 + 끝 방울
+      g.strokeStyle = "#a30000"; g.fillStyle = "#a30000"; g.lineWidth = 8;
+      g.beginPath(); g.moveTo(108, 172); g.lineTo(108, 214); g.stroke();
+      g.beginPath(); g.arc(108, 220, 8, 0, Math.PI * 2); g.fill();
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(size, size),
+        new THREE.MeshBasicMaterial({
+          map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false
+        })
+      );
+      return mesh;
+    }
+    /* ── 봇 머리 위 HP바 (구독 한도 잔량) ──────────────────────────
+       /api/health 가 실측을 주는 봇(클또리·챗또리)만 게이지를 그린다.
+       측정 불가한 봇(젬또리)은 '?'로 두고 가짜 게이지를 만들지 않는다. */
+    function makeHpBar() {
+      const cv = document.createElement("canvas"); cv.width = 256; cv.height = 64;
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false
+      }));
+      sp.scale.set(2.0, 0.5, 1);
+      sp.userData.cv = cv;
+      sp.visible = false;
+      return sp;
+    }
 
-const HP_COL = { good: "#6ee7a0", warn: "#ffd166", danger: "#ff6b6b" };
+    const HP_COL = { good: "#6ee7a0", warn: "#ffd166", danger: "#ff6b6b" };
 
-function drawHpBar(sp, hp) {
-  const cv = sp.userData.cv, g = cv.getContext("2d");
-  g.clearRect(0, 0, cv.width, cv.height);
+    function drawHpBar(sp, hp) {
+      const cv = sp.userData.cv, g = cv.getContext("2d");
+      g.clearRect(0, 0, cv.width, cv.height);
 
-  // 측정 불가 → 물음표만 (가짜 게이지 금지)
-  if (!hp || !hp.measurable || !hp.windows?.length) {
-    g.font = "bold 30px Pretendard, sans-serif"; g.textAlign = "center";
-    g.fillStyle = "rgba(170,177,212,.85)";
-    g.strokeStyle = "rgba(0,0,0,.7)"; g.lineWidth = 5;
-    g.strokeText("한도 ?", 128, 40); g.fillText("한도 ?", 128, 40);
-    sp.visible = true;
-    sp.material.map.needsUpdate = true;
-    return;
-  }
+      // 측정 불가 → 물음표만 (가짜 게이지 금지)
+      if (!hp || !hp.measurable || !hp.windows?.length) {
+        g.font = "bold 30px Pretendard, sans-serif"; g.textAlign = "center";
+        g.fillStyle = "rgba(170,177,212,.85)";
+        g.strokeStyle = "rgba(0,0,0,.7)"; g.lineWidth = 5;
+        g.strokeText("한도 ?", 128, 40); g.fillText("한도 ?", 128, 40);
+        sp.visible = true;
+        sp.material.map.needsUpdate = true;
+        return;
+      }
 
-  const w = hp.windows[0];                    // 가장 짧은 창(가장 급한 것)
-  const pct = Math.max(0, Math.min(100, w.remaining_pct));
-  const col = HP_COL[w.level] || "#6ee7a0";
+      const w = hp.windows[0];                    // 가장 짧은 창(가장 급한 것)
+      const pct = Math.max(0, Math.min(100, w.remaining_pct));
+      const col = HP_COL[w.level] || "#6ee7a0";
 
-  const BX = 16, BY = 22, BW = 224, BH = 18;
-  g.fillStyle = "rgba(0,0,0,.55)";            // 테두리/배경
-  g.fillRect(BX - 3, BY - 3, BW + 6, BH + 6);
-  g.fillStyle = "rgba(255,255,255,.12)";
-  g.fillRect(BX, BY, BW, BH);
-  g.fillStyle = col;                          // 체력
-  g.fillRect(BX, BY, BW * pct / 100, BH);
+      const BX = 16, BY = 22, BW = 224, BH = 18;
+      g.fillStyle = "rgba(0,0,0,.55)";            // 테두리/배경
+      g.fillRect(BX - 3, BY - 3, BW + 6, BH + 6);
+      g.fillStyle = "rgba(255,255,255,.12)";
+      g.fillRect(BX, BY, BW, BH);
+      g.fillStyle = col;                          // 체력
+      g.fillRect(BX, BY, BW * pct / 100, BH);
 
-  g.font = "bold 20px Pretendard, sans-serif"; g.textAlign = "center";
-  g.fillStyle = "#fff"; g.strokeStyle = "rgba(0,0,0,.8)"; g.lineWidth = 4;
-  const txt = `${pct}%  ${w.label}`;
-  g.strokeText(txt, 128, 16); g.fillText(txt, 128, 16);
+      g.font = "bold 20px Pretendard, sans-serif"; g.textAlign = "center";
+      g.fillStyle = "#fff"; g.strokeStyle = "rgba(0,0,0,.8)"; g.lineWidth = 4;
+      const txt = `${pct}%  ${w.label}`;
+      g.strokeText(txt, 128, 16); g.fillText(txt, 128, 16);
 
-  sp.visible = true;
-  sp.material.map.needsUpdate = true;
-}
+      sp.visible = true;
+      sp.material.map.needsUpdate = true;
+    }
 
-function buildDeptVisual(dp) {
-  dp.zoneMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(dp.w-.8, .06, dp.d-.8),
-    new THREE.MeshStandardMaterial({ color: dp.color, transparent: true, opacity: .28 }));  // 흰 바닥 위 부서 카펫
-  dp.zoneMesh.position.set(dp.x, .04, dp.z); scene.add(dp.zoneMesh);
-  dp.lbl = makeLabel(dp.name, 1.1);
-  dp.lbl.position.set(dp.x, 3.4, dp.z); scene.add(dp.lbl);
-}
-for (const dp of DEPTS) buildDeptVisual(dp);
+    // ── 가구 (공용공간 · 부서 구역) ───────────────────────────
+    // 테마/on-off는 company/office.json에서 읽는다(applyOfficeConfig). 여기선 생성만.
+    // 화사한 밝은 오피스 톤 — 쨍하고 산뜻한 컬러, 유리류만 반투명.
+    const FURN_MATS = {
+      pot: new THREE.MeshStandardMaterial({ color: 0xe08a4a, roughness: .7 }),
+      leaf: new THREE.MeshStandardMaterial({ color: 0x4fbf6a, roughness: .7 }),
+      sofa: new THREE.MeshStandardMaterial({ color: 0x7c8cff, roughness: .7 }),
+      cooler: new THREE.MeshStandardMaterial({ color: 0xf5f8fc, roughness: .5 }),
+      coolerTop: new THREE.MeshStandardMaterial({ color: 0x9fe4ff, transparent: true, opacity: .8 }),
+      board: new THREE.MeshStandardMaterial({ color: 0x5a6bb5, roughness: .7 }),
+      wood: new THREE.MeshStandardMaterial({ color: 0xc79a63, roughness: .8 }),
+    };
+    // office.json 이 켜고/끄는 가구 그룹. 부서별(deptExtras)은 부서 생성·폐지에 맞춰 늘고 준다.
+    const FURNITURE = { plants: [], sofa: null, waterCooler: null, noticeBoard: null, deptExtras: [] };
 
-// 현황판 부서 개편 동기화 — 신설(로비 자리)/명칭 변경/폐지
-function syncDepts(list) {
-  if (!Array.isArray(list) || !list.length) return;
-  for (const d of list) {
-    const col = parseInt((d.color || "#7cc4ff").replace("#", ""), 16);
-    let dp = DEPTS.find(x => x.slug === d.slug);
-    if (!dp) {
-      const slot = SPARE_SLOTS.shift();
-      if (!slot) continue;
-      dp = { slug: d.slug, name: d.name, jsonName: d.name, color: col, spare: true, ...slot };
-      DEPTS.push(dp);
-      buildDeptVisual(dp);
-    } else if (dp.jsonName !== d.name) {   // 간판 교체
-      dp.jsonName = d.name;
-      scene.remove(dp.lbl);
-      dp.lbl = makeLabel(d.name, 1.1);
+    function makePlant(x, z, scale = 1) {
+      const g = new THREE.Group();
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(.22 * scale, .17 * scale, .32 * scale, 10), FURN_MATS.pot);
+      pot.position.y = .16 * scale; pot.castShadow = true; g.add(pot);
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(.36 * scale, 10, 8), FURN_MATS.leaf);
+      leaf.scale.y = .8; leaf.position.y = .52 * scale; leaf.castShadow = true; g.add(leaf);
+      g.position.set(x, 0, z); scene.add(g);
+      return g;
+    }
+    function makeSofa(x, z, rotY = 0) {
+      const g = new THREE.Group();
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(1.7, .4, .7), FURN_MATS.sofa);
+      seat.position.y = .3; seat.castShadow = true; g.add(seat);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(1.7, .5, .16), FURN_MATS.sofa);
+      back.position.set(0, .65, -.27); back.castShadow = true; g.add(back);
+      for (const s of [-1, 1]) {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(.16, .45, .7), FURN_MATS.sofa);
+        arm.position.set(.77 * s, .42, 0); g.add(arm);
+      }
+      g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+      return g;
+    }
+    function makeWaterCooler(x, z) {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .95, 10), FURN_MATS.cooler);
+      body.position.y = .48; body.castShadow = true; g.add(body);
+      const bottle = new THREE.Mesh(new THREE.CylinderGeometry(.18, .18, .5, 10), FURN_MATS.coolerTop);
+      bottle.position.y = 1.2; g.add(bottle);
+      g.position.set(x, 0, z); scene.add(g);
+      return g;
+    }
+    function makeNoticeBoard(x, z, rotY = 0) {
+      const g = new THREE.Group();
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.0, .08), FURN_MATS.wood);
+      frame.position.y = 1.35; g.add(frame);
+      const board = new THREE.Mesh(new THREE.BoxGeometry(1.3, .8, .05), FURN_MATS.board);
+      board.position.set(0, 1.35, .04); g.add(board);
+      const lbl = makeLabel("📌 공지", .55); lbl.position.set(0, 1.35, .1); g.add(lbl);
+      g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+      return g;
+    }
+    function makeLocker(x, z, rotY = 0) {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(.9, 1.3, .45), FURN_MATS.wood);
+      body.position.y = .65; body.castShadow = true; g.add(body);
+      for (const yy of [.4, .8, 1.15]) {
+        const line = new THREE.Mesh(new THREE.BoxGeometry(.92, .02, .47), FURN_MATS.pot);
+        line.position.y = yy; g.add(line);
+      }
+      g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+      return g;
+    }
+    // 부서 구역 소품(로커+식물) — 부서 우측 뒤편 코너. 책상 그리드(동적)와 겹치지 않게 항상 코너에 고정.
+    function addDeptFurniture(dp) {
+      const cx = dp.x + dp.w / 2 - .9, cz = dp.z - dp.d / 2 + .9;
+      const locker = makeLocker(cx, cz, 0);
+      const plant = makePlant(cx - 1.0, cz, .85);
+      dp.furniture = [locker, plant];
+      FURNITURE.deptExtras.push(locker, plant);
+    }
+
+    function buildDeptVisual(dp) {
+      dp.zoneMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(dp.w - .8, .06, dp.d - .8),
+        new THREE.MeshStandardMaterial({ color: dp.color, transparent: true, opacity: .32,
+          emissive: dp.color, emissiveIntensity: .12 }));  // 밝은 바닥 위 산뜻한 부서 카펫
+      dp.zoneMesh.position.set(dp.x, .04, dp.z); scene.add(dp.zoneMesh);
+      dp.lbl = makeLabel(dp.name, 1.1);
       dp.lbl.position.set(dp.x, 3.4, dp.z); scene.add(dp.lbl);
+      addDeptFurniture(dp);
     }
-  }
-  for (const dp of [...DEPTS]) {          // 폐지: 카펫·간판 제거 (벽은 유지)
-    if (!list.some(d => d.slug === dp.slug)) {
-      scene.remove(dp.zoneMesh); scene.remove(dp.lbl);
-      DEPTS.splice(DEPTS.indexOf(dp), 1);
+    for (const dp of DEPTS) buildDeptVisual(dp);
+
+    // 공용공간(로비) 가구 — 정문 앞 홀. 부서 개편과 무관하게 고정.
+    FURNITURE.plants.push(makePlant(-10.5, 8.8), makePlant(10.5, 8.8));
+    FURNITURE.sofa = makeSofa(-9.5, 8.6, Math.PI);       // 남벽 등지고 실내를 바라봄
+    FURNITURE.waterCooler = makeWaterCooler(9.5, 8.6);
+    FURNITURE.noticeBoard = makeNoticeBoard(-3.5, 9.7, Math.PI);
+
+    // office.json 색상/가구 on-off 적용 (파일 없으면 기본값 유지)
+    function applyOfficeConfig(cfg) {
+      if (!cfg || typeof cfg !== "object") return;
+      const c = cfg.colors || {};
+      if (c.floor) floor.material.color.set(c.floor);
+      if (c.wall) wallMat.color.set(c.wall);
+      if (c.trim) trimMat.color.set(c.trim);
+      if (c.plinth) plinth.material.color.set(c.plinth);
+      const f = cfg.furniture || {};
+      const setVis = (list, on) => { for (const g of list) if (g) g.visible = on !== false; };
+      setVis(FURNITURE.plants, f.plants);
+      setVis([FURNITURE.sofa], f.sofa);
+      setVis([FURNITURE.waterCooler], f.waterCooler);
+      setVis([FURNITURE.noticeBoard], f.noticeBoard);
+      setVis(FURNITURE.deptExtras, f.deptExtras);
     }
-  }
-}
-
-// ── 책상 ─────────────────────────────────────────────────
-const deskMat = new THREE.MeshStandardMaterial({ color: 0x5a4a3a });
-const screenOn = new THREE.MeshStandardMaterial({ color: 0x9fdcff, emissive: 0x4488ff, emissiveIntensity: .9 });
-const screenOff = new THREE.MeshStandardMaterial({ color: 0x222833 });
-const desks = [];
-function addDesk(x, z, rotY=0) {
-  const grp = new THREE.Group();
-  const top = new THREE.Mesh(new THREE.BoxGeometry(1.6, .12, .8), deskMat);
-  top.position.y = .8; top.castShadow = true; grp.add(top);
-  for (const [lx, lz] of [[-.7,-.3],[.7,-.3],[-.7,.3],[.7,.3]]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(.1, .8, .1), deskMat);
-    leg.position.set(lx, .4, lz); grp.add(leg);
-  }
-  const scr = new THREE.Mesh(new THREE.BoxGeometry(.7, .45, .06), screenOff);
-  scr.position.set(0, 1.15, -.25); grp.add(scr);
-  grp.position.set(x, 0, z); grp.rotation.y = rotY; scene.add(grp);
-  const seat = new THREE.Vector3(x, 0, z).add(
-    new THREE.Vector3(0, 0, .85).applyEuler(new THREE.Euler(0, rotY, 0)));
-  desks.push({ grp, scr, seat, rotY, taken: null });
-  return desks.length - 1;
-}
-addDesk(-9, -6); addDesk(-6.5, -4.5, .4);          // hq
-addDesk(1, -6); addDesk(4, -6); addDesk(2.5, -3.5, Math.PI); // dev
-addDesk(-9, 4); addDesk(-6.5, 6, -.5);             // qa
-addDesk(1.5, 5); addDesk(4.5, 4.2, .8);            // research
-addDesk(10.5, -4, Math.PI/2); addDesk(10.5, 3, Math.PI/2);   // ops
-
-// ── 회의실 (로비 중앙 원탁 — Debate 뷰) ─────────────────
-const MEET = { x: 0, z: 8.0 };
-const tableMat = new THREE.MeshStandardMaterial({ color: 0x8a6f52 });
-const mtop = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, .1, 24), tableMat);
-mtop.position.set(MEET.x, .85, MEET.z); mtop.castShadow = true; scene.add(mtop);
-const mleg = new THREE.Mesh(new THREE.CylinderGeometry(.12, .2, .85, 12), tableMat);
-mleg.position.set(MEET.x, .42, MEET.z); scene.add(mleg);
-const meetSeats = [];
-for (let i = 0; i < 6; i++) {
-  const a = i / 6 * Math.PI * 2;
-  meetSeats.push({ pos: new THREE.Vector3(MEET.x + Math.sin(a)*2.0, 0, MEET.z + Math.cos(a)*2.0), taken: null });
-}
-const meetLbl = makeLabel("🏛️ 회의실", .9);
-meetLbl.position.set(MEET.x, 2.6, MEET.z); scene.add(meetLbl);
-
-// ── 블록 캐릭터 (심즈-lite) ───────────────────────────────
-const BOTS = [
-  { name:"클또리",   dept:"hq",       color:0xffd166, state:"working" },
-  { name:"코더봇A",  dept:"dev",      color:0x7cc4ff, state:"working" },
-  { name:"코더봇B",  dept:"dev",      color:0x7cc4ff, state:"idle" },
-  { name:"챗또리",   dept:"qa",       color:0x6ee7a0, state:"idle" },
-  { name:"테스터봇", dept:"qa",       color:0x6ee7a0, state:"idle" },
-  { name:"젬또리",   dept:"research", color:0xc4a2ff, state:"idle" },
-  { name:"리서처봇", dept:"research", color:0xc4a2ff, state:"idle" },
-  { name:"watcher",  dept:"ops",      color:0xff8fa3, state:"working" },
-];
-const bots = [];
-function makeBot(cfg) {
-  const dp = DEPTS.find(d => d.slug === cfg.dept);
-  const grp = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({ color: cfg.color });
-  const skin = new THREE.MeshStandardMaterial({ color: 0xffe0c2 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(.55, .7, .35), bodyMat);
-  body.position.y = .75; body.castShadow = true; grp.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.28, 12, 12), skin);
-  head.position.y = 1.35; head.castShadow = true; grp.add(head);
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
-  for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(.045, 6, 6), eyeMat);
-    eye.position.set(.11*s, 1.4, .24); grp.add(eye);
-  }
-  const legs = [];
-  for (const s of [-1, 1]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(.16, .4, .16), bodyMat);
-    leg.position.set(.15*s, .2, 0); grp.add(leg); legs.push(leg);
-  }
-  const arms = [];
-  for (const s of [-1, 1]) {
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(.13, .5, .13), bodyMat);
-    arm.position.set(.36*s, .8, 0); grp.add(arm); arms.push(arm);
-  }
-  const lbl = makeLabel(cfg.name, .55); lbl.position.y = 2.0; grp.add(lbl);
-  const zz = makeLabel("💤", .4); zz.position.set(.4, 1.9, 0); zz.visible = false; grp.add(zz);
-  // 체력바 — 실제 CLI 봇(클또리·챗또리·젬또리)에게만 붙는다. 가상 부서봇은 한도 개념이 없다.
-  const hpbar = makeHpBar(); hpbar.position.y = 2.42; grp.add(hpbar);
-  grp.position.set(dp.x + (Math.random()-.5)*3, 0, dp.z + (Math.random()-.5)*3);
-  scene.add(grp);
-  const bot = { ...cfg, grp, legs, arms, zz, hpbar, dp, bodyMat,
-    target: null, phase: Math.random()*10, deskIdx: null, sitT: 0 };
-  assignBehavior(bot);
-  return bot;
-}
-function removeBot(b) {
-  if (b.deskIdx !== null) { desks[b.deskIdx].taken = null; desks[b.deskIdx].scr.material = screenOff; }
-  const ms = meetSeats.find(s => s.taken === b.name);
-  if (ms) ms.taken = null;
-  scene.remove(b.grp);
-  bots.splice(bots.indexOf(b), 1);
-}
-// 현황판(projects.json)과 봇 명단 동기화 — 추가/삭제/부서이동 실시간 반영
-function syncRoster(list) {
-  const names = new Set(list.map(x => x.name));
-  for (const b of [...bots]) if (!names.has(b.name)) removeBot(b);
-  for (const x of list) {
-    const dp = DEPTS.find(d => d.slug === x.dept) || DEPTS[0];
-    let b = bots.find(b => b.name === x.name);
-    if (!b) {
-      bots.push(makeBot({ name: x.name, dept: dp.slug, color: dp.color, state: "idle" }));
-    } else if (b.dept !== dp.slug) {   // 부서 이동: 색 갈아입고 새 부서로 이사
-      b.dept = dp.slug; b.dp = dp;
-      b.bodyMat.color.setHex(dp.color);
-      b.state = "idle"; b.sitT = 0;
-      assignBehavior(b);
+    async function pollOffice() {
+      try {
+        const r = await fetch("/company/office.json", { cache: "no-store" });
+        if (!r.ok) return;               // 설정 파일 없음 = 기본 테마 유지 (정상 경로)
+        applyOfficeConfig(await r.json());
+      } catch { /* 파싱 실패 시 기존 테마 유지 */ }
     }
-  }
-}
-function deptDesks(slug) {
-  const dp = DEPTS.find(d => d.slug === slug);
-  return desks.map((d, i) => ({ d, i })).filter(({d}) =>
-    Math.abs(d.grp.position.x - dp.x) <= dp.w/2 && Math.abs(d.grp.position.z - dp.z) <= dp.d/2);
-}
-function assignBehavior(bot) {
-  if (bot.deskIdx !== null) { desks[bot.deskIdx].taken = null; desks[bot.deskIdx].scr.material = screenOff; bot.deskIdx = null; }
-  // 회의 중이 아닌데 회의석을 물고 있으면 반납 (bot.done 등으로 회의 이탈 시)
-  const ms = meetSeats.find(s => s.taken === bot.name);
-  if (ms && bot.state !== "meeting") ms.taken = null;
-  if (bot.state === "working") {
-    const free = deptDesks(bot.dept).filter(({d}) => !d.taken);
-    if (free.length) {
-      const { d, i } = free[Math.floor(Math.random()*free.length)];
-      d.taken = bot.name; bot.deskIdx = i; bot.target = d.seat.clone();
-      return;
-    }
-  }
-  // idle: 부서 구역 내 랜덤 산책
-  bot.target = new THREE.Vector3(
-    bot.dp.x + (Math.random()-.5)*(bot.dp.w-1.5), 0,
-    bot.dp.z + (Math.random()-.5)*(bot.dp.d-1.5));
-}
-for (const cfg of BOTS) bots.push(makeBot(cfg));
+    setInterval(pollOffice, 15000); pollOffice();
 
-// ── 애니메이션 루프 ──────────────────────────────────────
-const clock = new THREE.Clock();
-function animate() {
-  requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), .05);
-  const t = clock.elapsedTime;
-  for (const b of bots) {
-    b.zz.visible = b.state === "idle";
-    const pos = b.grp.position;
-    if (b.target) {
-      const dir = b.target.clone().sub(pos); dir.y = 0;
-      const dist = dir.length();
-      if (dist > .12) {
-        dir.normalize();
-        pos.addScaledVector(dir, dt * (b.state === "working" ? 2.2 : 1.1));
-        b.grp.rotation.y = Math.atan2(dir.x, dir.z);
-        // 걷기: 다리/팔 스윙 + 통통 바운스
-        const sw = Math.sin(t*9 + b.phase) * .5;
-        b.legs[0].rotation.x = sw; b.legs[1].rotation.x = -sw;
-        b.arms[0].rotation.x = -sw*.7; b.arms[1].rotation.x = sw*.7;
-        pos.y = Math.abs(Math.sin(t*9 + b.phase)) * .06;
-      } else {
-        pos.y = 0;
-        b.legs.forEach(l => l.rotation.x = 0);
-        if (b.deskIdx !== null) {
-          // 책상 도착: 화면 켜고 타이핑 까딱까딱
-          const dsk = desks[b.deskIdx];
-          dsk.scr.material = screenOn;
-          b.grp.rotation.y = dsk.rotY + Math.PI;
-          b.arms[0].rotation.x = -1 + Math.sin(t*13)*.25;
-          b.arms[1].rotation.x = -1 + Math.cos(t*11)*.25;
-          b.sitT += dt;
-          if (b.sitT > 14 + Math.random()*8) { b.sitT = 0; assignBehavior(b); } // 기지개 겸 자리 이동
-        } else if (b.state === "meeting") {
-          // 회의: 원탁을 바라보고 토론 손짓
-          b.grp.rotation.y = Math.atan2(MEET.x - pos.x, MEET.z - pos.z);
-          b.arms.forEach((a, i) => a.rotation.x = -.5 + Math.sin(t*3 + b.phase + i*1.7)*.25);
-        } else {
-          b.arms.forEach(a => a.rotation.x = Math.sin(t*2 + b.phase)*.08);
-          if (Math.random() < dt*.25) assignBehavior(b);   // 어슬렁 다음 목적지
+    // 현황판 부서 개편 동기화 — 신설(로비 자리)/명칭 변경/폐지
+    function syncDepts(list) {
+      if (!Array.isArray(list) || !list.length) return;
+      for (const d of list) {
+        const col = parseInt((d.color || "#7cc4ff").replace("#", ""), 16);
+        let dp = DEPTS.find(x => x.slug === d.slug);
+        if (!dp) {
+          const slot = SPARE_SLOTS.shift();
+          if (!slot) continue;
+          dp = { slug: d.slug, name: d.name, jsonName: d.name, color: col, spare: true, ...slot };
+          DEPTS.push(dp);
+          buildDeptVisual(dp);
+        } else if (dp.jsonName !== d.name) {   // 간판 교체
+          dp.jsonName = d.name;
+          scene.remove(dp.lbl);
+          dp.lbl = makeLabel(d.name, 1.1);
+          dp.lbl.position.set(dp.x, 3.4, dp.z); scene.add(dp.lbl);
+        }
+      }
+      for (const dp of [...DEPTS]) {          // 폐지: 카펫·간판·가구 제거 (벽은 유지)
+        if (!list.some(d => d.slug === dp.slug)) {
+          scene.remove(dp.zoneMesh); scene.remove(dp.lbl);
+          for (const f of dp.furniture || []) {
+            scene.remove(f);
+            FURNITURE.deptExtras = FURNITURE.deptExtras.filter(x => x !== f);
+          }
+          DEPTS.splice(DEPTS.indexOf(dp), 1);
         }
       }
     }
-  }
-  controls.update();
-  renderer.render(scene, camera);
-}
-animate();
-addEventListener("resize", () => {
-  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
 
-// ── HUD: 피드/결재/상태전이 (가짜 데이터) ────────────────
-const feedEl = document.getElementById("feed");
-function addFeed(actor, msg) {
-  const li = document.createElement("li"); li.className = "new";
-  li.innerHTML = `<span class="ts">${new Date().toTimeString().slice(0,5)}</span>${actor} <span style="color:#8a91b4">${msg}</span>`;
-  feedEl.prepend(li);
-  setTimeout(() => li.classList.remove("new"), 800);
-  while (feedEl.children.length > 30) feedEl.lastChild.remove();
-}
-[["📡 watcher","우편함 감시 중 (3s 폴링)"],["🔍 챗또리","watcher.py 리뷰 4건 완료"],
- ["📥 mail.in","젬또리 설계 검토 의견 도착"],["🤖 클또리","Phase B/C 설계 문서 작성"]]
- .forEach(e => addFeed(e[0], e[1]));
+    // ── 책상 (인원수 기반 동적 배치) ─────────────────────────
+    // 부서당 책상 수 = 그 부서 실제 인원수(company/projects.json). 고정 좌표가 아니라
+    // 인원이 늘면 책상이 늘고, 줄면 빈 책상이 정리된다. refreshDeskLayout()이 매 폴링(3s)마다
+    // 부서별 (희망 책상 수 vs 현재 책상 수)를 비교해 다르면만 다시 배치한다(변화 없으면 no-op).
+    const deskMat = new THREE.MeshStandardMaterial({ color: 0xc79a63, roughness: .8 });   // 밝은 우드
+    const screenOn = new THREE.MeshStandardMaterial({ color: 0x9fdcff, emissive: 0x4488ff, emissiveIntensity: .9 });
+    const screenOff = new THREE.MeshStandardMaterial({ color: 0x36404f });
+    const desks = [];
+    function addDesk(x, z, rotY = 0, dept = null) {
+      const grp = new THREE.Group();
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.6, .12, .8), deskMat);
+      top.position.y = .8; top.castShadow = true; grp.add(top);
+      for (const [lx, lz] of [[-.7, -.3], [.7, -.3], [-.7, .3], [.7, .3]]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(.1, .8, .1), deskMat);
+        leg.position.set(lx, .4, lz); grp.add(leg);
+      }
+      const scr = new THREE.Mesh(new THREE.BoxGeometry(.7, .45, .06), screenOff);
+      scr.position.set(0, 1.15, -.25); grp.add(scr);
+      grp.position.set(x, 0, z); grp.rotation.y = rotY; scene.add(grp);
+      const seat = new THREE.Vector3(x, 0, z).add(
+        new THREE.Vector3(0, 0, .85).applyEuler(new THREE.Euler(0, rotY, 0)));
+      desks.push({ grp, scr, seat, rotY, taken: null, dept });
+    }
+    // 부서 사각형(dp.w × dp.d) 안에 count개 책상을 격자로 배치할 좌표를 계산.
+    // 폭이 좁으면 자동으로 세로로 더 쌓는다(열 수를 줄이고 행 수를 늘림).
+    function computeDeskSlots(dp, count) {
+      const CELL_W = 2.2, CELL_D = 2.0;
+      let columns = Math.max(1, Math.floor((dp.w - 1.6) / CELL_W));
+      const maxRows = Math.max(1, Math.floor((dp.d - 1.6) / CELL_D));
+      let rows = Math.ceil(count / columns);
+      if (rows > maxRows) { rows = maxRows; columns = Math.max(columns, Math.ceil(count / rows)); }
+      const slots = [];
+      for (let i = 0; i < count; i++) {
+        const col = i % columns, row = Math.floor(i / columns);
+        slots.push({
+          x: dp.x - ((columns - 1) * CELL_W) / 2 + col * CELL_W,
+          z: dp.z - ((rows - 1) * CELL_D) / 2 + row * CELL_D,
+        });
+      }
+      return slots;
+    }
+    // 부서별 희망 책상 수(= 실제 인원수, 최소 1)와 현재 책상 수가 다른 부서만 다시 배치.
+    // 앉아있던 봇은 자리를 잠깐 잃고(bot.desk=null) 아래에서 새 책상으로 재배정된다.
+    function refreshDeskLayout() {
+      let changed = false;
+      // 부서가 폐지되면(syncDepts) 그 부서 소속 책상은 DEPTS 루프에서 더 이상 안 걸린다 —
+      // 고아로 남지 않게 먼저 정리한다(예: 데모 전용 'ops'가 실제 서버 부서 목록에 없어 사라지는 경우).
+      const liveSlugs = new Set(DEPTS.map(dp => dp.slug));
+      for (const d of [...desks]) {
+        if (liveSlugs.has(d.dept)) continue;
+        if (d.taken) {
+          const b = bots.find(bb => bb.name === d.taken);
+          if (b) b.desk = null;
+        }
+        scene.remove(d.grp);
+        desks.splice(desks.indexOf(d), 1);
+        changed = true;
+      }
+      for (const dp of DEPTS) {
+        const want = Math.max(1, bots.filter(b => b.dept === dp.slug).length);
+        const mine = desks.filter(d => d.dept === dp.slug);
+        if (mine.length === want) continue;
+        changed = true;
+        for (const d of mine) {
+          if (d.taken) {
+            const b = bots.find(bb => bb.name === d.taken);
+            if (b) b.desk = null;
+          }
+          scene.remove(d.grp);
+          desks.splice(desks.indexOf(d), 1);
+        }
+        for (const s of computeDeskSlots(dp, want)) addDesk(s.x, s.z, 0, dp.slug);
+      }
+      if (changed) for (const b of bots) if (b.state === "working" && !b.desk) assignBehavior(b);
+    }
 
-// ── LIVE 모드: /company/events.jsonl 3초 폴링 (Phase B 실데이터) ──
-// http.server로 서빙 중이면 LIVE, file:// 직접 열람이면 DEMO 폴백.
-const TYPE_ICON = CC.TYPE_ICON;   // 공용 (debate 아이콘 포함)
-let seenCount = 0, live = false;
+    // ── 회의실 (로비 중앙 원탁 — Debate 뷰) ─────────────────
+    const MEET = { x: 0, z: 8.0 };
+    const tableMat = new THREE.MeshStandardMaterial({ color: 0xcaa06a, roughness: .75 });   // 밝은 우드 원탁
+    const mtop = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, .1, 24), tableMat);
+    mtop.position.set(MEET.x, .85, MEET.z); mtop.castShadow = true; scene.add(mtop);
+    const mleg = new THREE.Mesh(new THREE.CylinderGeometry(.12, .2, .85, 12), tableMat);
+    mleg.position.set(MEET.x, .42, MEET.z); scene.add(mleg);
+    const meetSeats = [];
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      meetSeats.push({ pos: new THREE.Vector3(MEET.x + Math.sin(a) * 2.0, 0, MEET.z + Math.cos(a) * 2.0), taken: null });
+    }
+    const meetLbl = makeLabel("🏛️ 회의실", .9);
+    meetLbl.position.set(MEET.x, 2.6, MEET.z); scene.add(meetLbl);
 
-// ── Debate 뷰: debate.* 이벤트 → 회의실 소집/말풍선/해산 ──
-const debate = { active: false, id: null };
-function debateJoin(name) {
-  const b = bots.find(b => b.name === name);
-  if (!b || b.state === "meeting") return;
-  const seat = meetSeats.find(s => !s.taken);
-  if (!seat) return;
-  seat.taken = name;
-  if (b.deskIdx !== null) { desks[b.deskIdx].taken = null; desks[b.deskIdx].scr.material = screenOff; b.deskIdx = null; }
-  b.state = "meeting"; b.target = seat.pos.clone();
-}
-function debateEnd() {
-  debate.active = false; debate.id = null;
-  document.getElementById("debatebox").style.display = "none";
-  for (const s of meetSeats) {
-    const b = s.taken && bots.find(b => b.name === s.taken);
-    s.taken = null;
-    if (b) { b.state = "idle"; b.sitT = 0; assignBehavior(b); }
-  }
-}
-function bubble(b, text) {
-  if (b.bub) b.grp.remove(b.bub);
-  b.bub = makeLabel("💬 " + text.slice(0, 14), .7);
-  b.bub.position.y = 2.5; b.grp.add(b.bub);
-  clearTimeout(b.bubT);
-  b.bubT = setTimeout(() => { if (b.bub) { b.grp.remove(b.bub); b.bub = null; } }, 7000);
-}
-function debateLogLine(text) {
-  const log = document.getElementById("debate-log");
-  const li = document.createElement("li"); li.textContent = text;
-  log.prepend(li);
-  while (log.children.length > 5) log.lastChild.remove();
-}
-function applyDebate(ev, animate) {
-  if (ev.type === "debate.started") {
-    if (debate.active) debateEnd();   // 이전 회의 미정리 좌석 누수 방지 (챗또리 리뷰)
-    debate.active = true; debate.id = ev.task_id || null;
-    document.getElementById("debate-topic").textContent = "주제: " + ev.summary;
-    document.getElementById("debate-log").innerHTML = "";
-    document.getElementById("debatebox").style.display = "block";
-    debateJoin(ev.actor);
-    for (const name of (ev.refs || [])) debateJoin(name);   // refs = 참여 봇 이름 목록
-    return;
-  }
-  if (!debate.active) return;
-  if (debate.id && ev.task_id && ev.task_id !== debate.id) return;   // 다른 회의 이벤트 혼입 차단
-  if (ev.type === "debate.statement") {
-    debateJoin(ev.actor);   // 늦게 합류해도 착석
-    const b = bots.find(b => b.name === ev.actor);
-    if (b && animate) bubble(b, ev.summary);
-    debateLogLine(`${ev.actor}: ${ev.summary}`);
-  } else if (ev.type === "debate.concluded") {
-    debateLogLine(`🤝 결론: ${ev.summary}`);
-    if (!animate) return debateEnd();   // 리플레이(과거 회의)는 즉시 해산
-    const endId = debate.id;            // 8초 내 새 회의 시작 시 오발 종료 방지
-    setTimeout(() => { if (debate.active && debate.id === endId) debateEnd(); }, 8000);
-  }
-}
+    // ── 블록 캐릭터 (심즈-lite) ───────────────────────────────
+    const BOTS = [
+      { name: "클또리", dept: "hq", color: 0xffd166, state: "working" },
+      { name: "코더봇A", dept: "dev", color: 0x7cc4ff, state: "working" },
+      { name: "코더봇B", dept: "dev", color: 0x7cc4ff, state: "idle" },
+      { name: "챗또리", dept: "qa", color: 0x6ee7a0, state: "idle" },
+      { name: "테스터봇", dept: "qa", color: 0x6ee7a0, state: "idle" },
+      { name: "젬또리", dept: "research", color: 0xc4a2ff, state: "idle" },
+      { name: "리서처봇", dept: "research", color: 0xc4a2ff, state: "idle" },
+      { name: "watcher", dept: "ops", color: 0xff8fa3, state: "working" },
+    ];
+    const bots = [];
+    function makeBot(cfg) {
+      const dp = DEPTS.find(d => d.slug === cfg.dept);
+      const grp = new THREE.Group();
+      // 봇 몸통은 부서 색 — 밝은 오피스라 발광은 살짝만 얹어 색이 쨍하게 살아나게.
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: cfg.color, emissive: cfg.color, emissiveIntensity: .12, roughness: .55 });
+      const skin = new THREE.MeshStandardMaterial({ color: 0xffe0c2, roughness: .7 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(.55, .7, .35), bodyMat);
+      body.position.y = .75; body.castShadow = true; grp.add(body);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(.28, 12, 12), skin);
+      head.position.y = 1.35; head.castShadow = true; grp.add(head);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+      const eyes = [];
+      for (const s of [-1, 1]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(.045, 6, 6), eyeMat);
+        eye.position.set(.11 * s, 1.4, .24); grp.add(eye); eyes.push(eye);
+      }
+      const legs = [];
+      for (const s of [-1, 1]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(.16, .4, .16), bodyMat);
+        leg.position.set(.15 * s, .2, 0); grp.add(leg); legs.push(leg);
+      }
+      const arms = [];
+      for (const s of [-1, 1]) {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(.13, .5, .13), bodyMat);
+        arm.position.set(.36 * s, .8, 0); grp.add(arm); arms.push(arm);
+      }
+      const lbl = makeLabel(cfg.name, .55); lbl.position.y = 2.0; grp.add(lbl);
+      const zz = makeLabel("💤", .4); zz.position.set(.4, 1.9, 0); zz.visible = false; grp.add(zz);
+      // 토큰 다 쓴(체력 0%) 봇 — 쓰러진 채 ✕_✕ 눈 + 입가 피 한 줄. 실제 한도 있는 봇에게만 발생.
+      const deadFace = makeDeadFace(.62); deadFace.position.set(0, 1.33, .29); deadFace.visible = false; grp.add(deadFace);
+      // 체력바 — 실제 CLI 봇(클또리·챗또리·젬또리)에게만 붙는다. 가상 부서봇은 한도 개념이 없다.
+      const hpbar = makeHpBar(); hpbar.position.y = 2.42; grp.add(hpbar);
+      grp.position.set(dp.x + (Math.random() - .5) * 3, 0, dp.z + (Math.random() - .5) * 3);
+      scene.add(grp);
+      const bot = {
+        ...cfg, grp, legs, arms, eyes, zz, deadFace, hpbar, dp, bodyMat,
+        target: null, phase: Math.random() * 10, desk: null, sitT: 0, dead: false
+      };
+      assignBehavior(bot);
+      return bot;
+    }
+    // 눕는 자세(죽음/휴식 공용) + 표정 — state/dead가 바뀔 때마다 여기서 한 번에 반영한다.
+    // 회전축을 X로 잡아서(Z가 아니라) 팔다리가 옆으로 안 겹치고 좌우로 자연스럽게 눕는다.
+    function updatePose(bot) {
+      const lying = bot.dead || bot.state === "idle";
+      bot.grp.rotation.x = lying ? -Math.PI / 2 : 0;
+      bot.grp.position.y = lying ? .18 : 0;
+      if (lying) { bot.legs.forEach(l => l.rotation.x = 0); bot.arms.forEach(a => a.rotation.x = 0); }
+      bot.deadFace.visible = !!bot.dead;
+      bot.eyes.forEach(e => e.visible = !bot.dead);   // 죽으면 원래 눈알 숨기고 ✕_✕만 보이게
+      bot.zz.visible = bot.state === "idle" && !bot.dead;
+    }
+    function removeBot(b) {
+      if (b.desk) { b.desk.taken = null; b.desk.scr.material = screenOff; }
+      const ms = meetSeats.find(s => s.taken === b.name);
+      if (ms) ms.taken = null;
+      scene.remove(b.grp);
+      bots.splice(bots.indexOf(b), 1);
+    }
+    // 현황판(projects.json)과 봇 명단 동기화 — 추가/삭제/부서이동 실시간 반영
+    function syncRoster(list) {
+      const names = new Set(list.map(x => x.name));
+      for (const b of [...bots]) if (!names.has(b.name)) removeBot(b);
+      for (const x of list) {
+        const dp = DEPTS.find(d => d.slug === x.dept) || DEPTS[0];
+        let b = bots.find(b => b.name === x.name);
+        if (!b) {
+          bots.push(makeBot({ name: x.name, dept: dp.slug, color: dp.color, state: "idle" }));
+        } else if (b.dept !== dp.slug) {   // 부서 이동: 색 갈아입고 새 부서로 이사
+          b.dept = dp.slug; b.dp = dp;
+          b.bodyMat.color.setHex(dp.color);
+          b.bodyMat.emissive.setHex(dp.color);   // 발광색도 새 부서색으로
 
-function applyEvent(ev, animate) {
-  // 피드만 프로젝트 필터를 탄다 — 봇 애니메이션/상태는 회사 전경이라 항상 반영
-  if (animate && CC.matchesProject(ev, CC.getProjFilter()))
-    addFeed(`${TYPE_ICON[ev.type] || "•"} ${ev.actor}`, ev.summary);
-  if (ev.type.startsWith("debate.")) return applyDebate(ev, animate);
-  const b = bots.find(b => b.name === ev.actor);   // 명단은 projects.json과 동기화됨
-  if (!b) return;
-  if (ev.type === "bot.spawned" || ev.type === "task.assigned") { b.state = "working"; b.sitT = 0; assignBehavior(b); }
-  if (ev.type === "bot.done" || ev.type === "bot.failed") { b.state = "idle"; b.sitT = 0; assignBehavior(b); }
-  if (ev.type === "mail.in" || ev.type === "mail.out") {
-    const w = bots.find(b => b.name === "watcher");
-    if (w && animate) { w.state = "working"; assignBehavior(w); }
-  }
-}
-// ── 프로젝트 필터 선택기 (스프린트2) — 상태는 CC(localStorage), 현황판과 공유 ──
-const projSel = document.getElementById("projsel");
-function syncProjSel(projects) {
-  const want = ["all", ...projects.map(p => p.id), "?"];
-  const have = [...projSel.options].map(o => o.value);
-  if (want.join() !== have.join()) {
-    projSel.innerHTML = `<option value="all">전체</option>`
-      + projects.map(p => `<option value="${CC.esc(p.id)}">${CC.esc(p.name)}</option>`).join("")
-      + `<option value="?">미지정</option>`;
-  }
-  // 레지스트리에서 사라진 id는 저장값까지 "전체"로 정규화 — 화면만 되돌리면
-  // 필터는 옛 id로 남아 빈 화면 거짓말이 된다 (리뷰어봇 2026-07-12)
-  if (!want.includes(CC.getProjFilter())) CC.setProjFilter("all");
-  projSel.value = CC.getProjFilter();
-}
-function rebuildFeed() {   // 필터 변경/LIVE 전환 시 피드를 필터 기준으로 재구성
-  feedEl.innerHTML = "";
-  const sel = CC.getProjFilter();
-  for (const ev of EVS.filter(e => CC.matchesProject(e, sel)).slice(-30))
-    addFeed(`${TYPE_ICON[ev.type] || "•"} ${ev.actor}`, ev.summary);
-}
-projSel.addEventListener("change", () => {
-  CC.setProjFilter(projSel.value);
-  if (!live) return;   // DEMO 모드 — 선택만 저장, 가짜 피드/결재는 건드리지 않는다
-  rebuildFeed(); renderApprovals(); pollTasks();
-});
+          b.state = "idle"; b.sitT = 0;
+          // LIVE 전환 전(데모→실데이터 최초 동기화)이면 데모 스폰 위치가 애초에 가짜였으므로
+          // 순간이동시킨다 — 그대로 두면 "왜 경영지원에서 나오냐"처럼 데모 스폰 지점(hq 등)에서
+          // 실제 부서(dev 등)까지 사무실을 가로질러 걷는 게 보여서 오해를 산다.
+          // LIVE 상태에서 일어나는 진짜 부서이동은 그대로 걸어서 이사하는 연출을 유지한다.
+          if (!live) b.grp.position.set(dp.x + (Math.random() - .5) * 3, 0, dp.z + (Math.random() - .5) * 3);
+          assignBehavior(b);
+        }
+      }
+    }
+    function deptDesks(slug) {
+      return desks.filter(d => d.dept === slug);
+    }
+    function assignBehavior(bot) {
+      if (bot.desk) { bot.desk.taken = null; bot.desk.scr.material = screenOff; bot.desk = null; }
+      // 회의 중이 아닌데 회의석을 물고 있으면 반납 (bot.done 등으로 회의 이탈 시)
+      const ms = meetSeats.find(s => s.taken === bot.name);
+      if (ms && bot.state !== "meeting") ms.taken = null;
+      // working만 책상에 앉힌다. idle(일 없음)은 책상 대신 그 자리에 누워서 쉰다(PM: "일없는 애들은
+      // 누워서 빈둥거리는 느낌으로"). 회의 중엔 desk 배정 자체를 건너뛴다.
+      if (bot.state === "working") {
+        const free = deptDesks(bot.dept).filter(d => !d.taken);
+        if (free.length) {
+          const d = free[Math.floor(Math.random() * free.length)];
+          d.taken = bot.name; bot.desk = d; bot.target = d.seat.clone();
+          updatePose(bot);
+          return;
+        }
+        // 책상이 다 찬 과도기(인원 늘어난 직후 등) — 자리 나길 그 자리에 서서 대기
+        bot.target = null;
+        updatePose(bot);
+        return;
+      }
+      if (bot.state === "meeting") { updatePose(bot); return; }   // target은 debateJoin이 직접 세팅
+      // idle: 그 자리에 누워서 휴식 — 배회하지 않는다
+      bot.target = null;
+      updatePose(bot);
+    }
+    for (const cfg of BOTS) bots.push(makeBot(cfg));
+    refreshDeskLayout();
 
-// ── LIVE 결재함: 미결 계산·결재 POST는 company-common.js(CC) 한 벌 사용 ──
-const apprsEl = document.getElementById("apprs");
-const esc = CC.esc;
-let EVS = [];
-function renderApprovals() {
-  const pending = CC.pendingApprovals(EVS)
-    .filter(e => CC.matchesProject(e, CC.getProjFilter()));
-  apprsEl.innerHTML = pending.length ? pending.map(e => `
+    // ── 애니메이션 루프 ──────────────────────────────────────
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), .05);
+      const t = clock.elapsedTime;
+      for (const b of bots) {
+        const pos = b.grp.position;
+        if (b.target) {
+          const dir = b.target.clone().sub(pos); dir.y = 0;
+          const dist = dir.length();
+          if (dist > .12) {
+            dir.normalize();
+            pos.addScaledVector(dir, dt * (b.state === "working" ? 2.2 : 1.1));
+            b.grp.rotation.y = Math.atan2(dir.x, dir.z);
+            // 걷기: 다리/팔 스윙 + 통통 바운스
+            const sw = Math.sin(t * 9 + b.phase) * .5;
+            b.legs[0].rotation.x = sw; b.legs[1].rotation.x = -sw;
+            b.arms[0].rotation.x = -sw * .7; b.arms[1].rotation.x = sw * .7;
+            pos.y = Math.abs(Math.sin(t * 9 + b.phase)) * .06;
+          } else {
+            pos.y = 0;
+            b.legs.forEach(l => l.rotation.x = 0);
+            if (b.desk) {
+              // 책상 도착: 화면 켜고 타이핑 까딱까딱
+              const dsk = b.desk;
+              dsk.scr.material = screenOn;
+              b.grp.rotation.y = dsk.rotY + Math.PI;
+              b.arms[0].rotation.x = -1 + Math.sin(t * 13) * .25;
+              b.arms[1].rotation.x = -1 + Math.cos(t * 11) * .25;
+              b.sitT += dt;
+              if (b.sitT > 35 + Math.random() * 20) { b.sitT = 0; assignBehavior(b); } // 기지개 겸 자리 이동 (오래 앉아있다 가끔)
+            } else if (b.state === "meeting") {
+              // 회의: 원탁을 바라보고 토론 손짓
+              b.grp.rotation.y = Math.atan2(MEET.x - pos.x, MEET.z - pos.z);
+              b.arms.forEach((a, i) => a.rotation.x = -.5 + Math.sin(t * 3 + b.phase + i * 1.7) * .25);
+            }
+          }
+        }
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+    addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    // ── HUD: 피드/결재/상태전이 (가짜 데이터) ────────────────
+    const feedEl = document.getElementById("feed");
+    function addFeed(actor, msg) {
+      const li = document.createElement("li"); li.className = "new";
+      li.innerHTML = `<span class="ts">${new Date().toTimeString().slice(0, 5)}</span>${actor} <span style="color:#adb3d6">${msg}</span>`;
+      feedEl.prepend(li);
+      setTimeout(() => li.classList.remove("new"), 800);
+      while (feedEl.children.length > 30) feedEl.lastChild.remove();
+    }
+    [["📡 watcher", "우편함 감시 중 (3s 폴링)"], ["🔍 챗또리", "watcher.py 리뷰 4건 완료"],
+    ["📥 mail.in", "젬또리 설계 검토 의견 도착"], ["🤖 클또리", "Phase B/C 설계 문서 작성"]]
+      .forEach(e => addFeed(e[0], e[1]));
+
+    // ── LIVE 모드: /company/events.jsonl 3초 폴링 (Phase B 실데이터) ──
+    // http.server로 서빙 중이면 LIVE, file:// 직접 열람이면 DEMO 폴백.
+    const TYPE_ICON = CC.TYPE_ICON;   // 공용 (debate 아이콘 포함)
+    let seenCount = 0, live = false;
+
+    // ── Debate 뷰: debate.* 이벤트 → 회의실 소집/말풍선/해산 ──
+    const debate = { active: false, id: null };
+    function debateJoin(name) {
+      const b = bots.find(b => b.name === name);
+      if (!b || b.state === "meeting" || b.dead) return;   // 토큰 다 쓴 봇은 회의 참여 불가
+      const seat = meetSeats.find(s => !s.taken);
+      if (!seat) return;
+      seat.taken = name;
+      if (b.desk) { b.desk.taken = null; b.desk.scr.material = screenOff; b.desk = null; }
+      b.state = "meeting"; b.target = seat.pos.clone();
+      updatePose(b);
+    }
+    function debateEnd() {
+      debate.active = false; debate.id = null;
+      document.getElementById("debatebox").style.display = "none";
+      for (const s of meetSeats) {
+        const b = s.taken && bots.find(b => b.name === s.taken);
+        s.taken = null;
+        if (b) { b.state = "idle"; b.sitT = 0; assignBehavior(b); }
+      }
+    }
+    function bubble(b, text) {
+      if (b.bub) b.grp.remove(b.bub);
+      b.bub = makeLabel("💬 " + text.slice(0, 14), .7);
+      b.bub.position.y = 2.5; b.grp.add(b.bub);
+      clearTimeout(b.bubT);
+      b.bubT = setTimeout(() => { if (b.bub) { b.grp.remove(b.bub); b.bub = null; } }, 7000);
+    }
+    function debateLogLine(text) {
+      const log = document.getElementById("debate-log");
+      const li = document.createElement("li"); li.textContent = text;
+      log.prepend(li);
+      while (log.children.length > 5) log.lastChild.remove();
+    }
+    function applyDebate(ev, animate) {
+      if (ev.type === "debate.started") {
+        if (debate.active) debateEnd();   // 이전 회의 미정리 좌석 누수 방지 (챗또리 리뷰)
+        debate.active = true; debate.id = ev.task_id || null;
+        document.getElementById("debate-topic").textContent = "주제: " + ev.summary;
+        document.getElementById("debate-log").innerHTML = "";
+        document.getElementById("debatebox").style.display = "block";
+        debateJoin(ev.actor);
+        for (const name of (ev.refs || [])) debateJoin(name);   // refs = 참여 봇 이름 목록
+        return;
+      }
+      if (!debate.active) return;
+      if (debate.id && ev.task_id && ev.task_id !== debate.id) return;   // 다른 회의 이벤트 혼입 차단
+      if (ev.type === "debate.statement") {
+        debateJoin(ev.actor);   // 늦게 합류해도 착석
+        const b = bots.find(b => b.name === ev.actor);
+        if (b && animate) bubble(b, ev.summary);
+        debateLogLine(`${ev.actor}: ${ev.summary}`);
+      } else if (ev.type === "debate.concluded") {
+        debateLogLine(`🤝 결론: ${ev.summary}`);
+        if (!animate) return debateEnd();   // 리플레이(과거 회의)는 즉시 해산
+        const endId = debate.id;            // 8초 내 새 회의 시작 시 오발 종료 방지
+        setTimeout(() => { if (debate.active && debate.id === endId) debateEnd(); }, 8000);
+      }
+    }
+
+    function applyEvent(ev, animate) {
+      // 피드만 프로젝트 필터를 탄다 — 봇 애니메이션/상태는 회사 전경이라 항상 반영
+      if (animate && CC.matchesProject(ev, CC.getProjFilter()))
+        addFeed(`${TYPE_ICON[ev.type] || "•"} ${ev.actor}`, ev.summary);
+      if (ev.type.startsWith("debate.")) return applyDebate(ev, animate);
+      const b = bots.find(b => b.name === ev.actor);   // 명단은 projects.json과 동기화됨
+      if (!b) return;
+      if (ev.type === "bot.spawned" || ev.type === "task.assigned") { b.state = "working"; b.sitT = 0; assignBehavior(b); }
+      if (ev.type === "bot.done" || ev.type === "bot.failed") { b.state = "idle"; b.sitT = 0; assignBehavior(b); }
+      if (ev.type === "mail.in" || ev.type === "mail.out") {
+        const w = bots.find(b => b.name === "watcher");
+        if (w && animate) { w.state = "working"; assignBehavior(w); }
+      }
+    }
+    // ── 프로젝트 필터 선택기 (스프린트2) — 상태는 CC(localStorage), 현황판과 공유 ──
+    const projSel = document.getElementById("projsel");
+    function syncProjSel(projects) {
+      const want = ["all", ...projects.map(p => p.id), "?"];
+      const have = [...projSel.options].map(o => o.value);
+      if (want.join() !== have.join()) {
+        projSel.innerHTML = `<option value="all">전체</option>`
+          + projects.map(p => `<option value="${CC.esc(p.id)}">${CC.esc(p.name)}</option>`).join("")
+          + `<option value="?">미지정</option>`;
+      }
+      // 레지스트리에서 사라진 id는 저장값까지 "전체"로 정규화 — 화면만 되돌리면
+      // 필터는 옛 id로 남아 빈 화면 거짓말이 된다 (리뷰어봇 2026-07-12)
+      if (!want.includes(CC.getProjFilter())) CC.setProjFilter("all");
+      projSel.value = CC.getProjFilter();
+    }
+    function rebuildFeed() {   // 필터 변경/LIVE 전환 시 피드를 필터 기준으로 재구성
+      feedEl.innerHTML = "";
+      const sel = CC.getProjFilter();
+      for (const ev of EVS.filter(e => CC.matchesProject(e, sel)).slice(-30))
+        addFeed(`${TYPE_ICON[ev.type] || "•"} ${ev.actor}`, ev.summary);
+    }
+    projSel.addEventListener("change", () => {
+      CC.setProjFilter(projSel.value);
+      if (!live) return;   // DEMO 모드 — 선택만 저장, 가짜 피드/결재는 건드리지 않는다
+      rebuildFeed(); renderApprovals(); pollTasks();
+    });
+
+    // ── LIVE 결재함: 미결 계산·결재 POST는 company-common.js(CC) 한 벌 사용 ──
+    const apprsEl = document.getElementById("apprs");
+    const esc = CC.esc;
+    let EVS = [];
+    function renderApprovals() {
+      const pending = CC.pendingApprovals(EVS)
+        .filter(e => CC.matchesProject(e, CC.getProjFilter()));
+      apprsEl.innerHTML = pending.length ? pending.map(e => `
     <div class="appr"><div class="t">${esc(e.summary)}</div>
       <button class="ok" onclick="decide3d(${EVS.indexOf(e)}, true)">✅ 승인</button>
       <button class="no" onclick="decide3d(${EVS.indexOf(e)}, false)">↩ 반려</button><span class="vd"></span></div>`).join("")
-    : `<div class="appr"><div class="t" style="color:#8a91b4">미결 없음 ✨</div></div>`;
-}
-window.decide3d = async (idx, ok) => {
-  const e = EVS[idx];
-  if (!e) return;
-  try {
-    const j = await CC.decide(e, ok);
-    if (!j.ok) { alert("실패: " + j.error); return; }
-    addFeed("👤 PM", `${e.summary.slice(0, 40)} → ${ok ? "승인" : "반려"}`);
-    pollEvents();  // 즉시 재폴링 → 결재함 재렌더
-  } catch { alert("서버 연결 실패 — serve.py 확인 (POST는 http.server로는 안 됨)"); }
-};
+        : `<div class="appr"><div class="t" style="color:#adb3d6">미결 없음 ✨</div></div>`;
+    }
+    window.decide3d = async (idx, ok) => {
+      const e = EVS[idx];
+      if (!e) return;
+      try {
+        const j = await CC.decide(e, ok);
+        if (!j.ok) { alert("실패: " + j.error); return; }
+        addFeed("👤 PM", `${e.summary.slice(0, 40)} → ${ok ? "승인" : "반려"}`);
+        pollEvents();  // 즉시 재폴링 → 결재함 재렌더
+      } catch { alert("서버 연결 실패 — serve.py 확인 (POST는 http.server로는 안 됨)"); }
+    };
 
-// ── 오늘 토큰 실측 (GET /api/cost — 트랜스크립트 집계, 서버 60s 캐시) ──
-async function pollCost() {
-  const c = await CC.fetchCost();
-  if (!c || !c.ok) return;   // 서버 없음(DEMO) — 데모 카운터가 대신 돔
-  // 트랜스크립트가 없는 환경(제품 배포본)에선 HUD 자체를 내린다 — 0이나 데모 숫자를 실측처럼 보여주지 않는다.
-  // 숨김은 되돌릴 수 있어야 한다: 세션 도중 트랜스크립트가 생기면 다음 폴링에서 다시 나타난다.
-  document.getElementById("cost").style.display = c.available === false ? "none" : "";
-  if (c.available === false) return;
-  document.getElementById("c").textContent = `${CC.fmtTok(c.output)} out`;
-  document.getElementById("c2").textContent = `· in ${CC.fmtTok(c.input)} · 캐시 ${CC.fmtTok(c.cache_read)}`;
-}
-setInterval(pollCost, 30000); pollCost();
+    // ── 오늘 토큰 실측 (GET /api/cost — 트랜스크립트 집계, 서버 60s 캐시) ──
+    async function pollCost() {
+      const c = await CC.fetchCost();
+      if (!c || !c.ok) return;   // 서버 없음(DEMO) — 데모 카운터가 대신 돔
+      // 트랜스크립트가 없는 환경(제품 배포본)에선 HUD 자체를 내린다 — 0이나 데모 숫자를 실측처럼 보여주지 않는다.
+      // 숨김은 되돌릴 수 있어야 한다: 세션 도중 트랜스크립트가 생기면 다음 폴링에서 다시 나타난다.
+      document.getElementById("cost").style.display = c.available === false ? "none" : "";
+      if (c.available === false) return;
+      document.getElementById("c").textContent = `${CC.fmtTok(c.output)} out`;
+      document.getElementById("c2").textContent = `· in ${CC.fmtTok(c.input)} · 캐시 ${CC.fmtTok(c.cache_read)}`;
+    }
+    setInterval(pollCost, 30000); pollCost();
 
-// ── 태스크 보드 (GET /api/tasks — 상태 판정 SSOT는 tasks.py) ──
-// DEMO(정적 서버)면 API가 없으니 패널을 숨긴다. 가짜 태스크를 지어내지 않는다.
-async function pollTasks() {
-  const box = document.getElementById("taskbox");
-  let d;
-  try {
-    const r = await fetch("/api/tasks", { cache: "no-store" });
-    if (!r.ok) throw 0;
-    d = await r.json();
-    if (!d.ok) throw 0;
-  } catch {
-    box.style.display = "none";
-    return;
-  }
-  box.style.display = "block";
+    // ── 태스크 보드 (GET /api/tasks — 상태 판정 SSOT는 tasks.py) ──
+    // DEMO(정적 서버)면 API가 없으니 패널을 숨긴다. 가짜 태스크를 지어내지 않는다.
+    async function pollTasks() {
+      const box = document.getElementById("taskbox");
+      let d;
+      try {
+        const r = await fetch("/api/tasks", { cache: "no-store" });
+        if (!r.ok) throw 0;
+        d = await r.json();
+        if (!d.ok) throw 0;
+      } catch {
+        box.style.display = "none";
+        return;
+      }
+      box.style.display = "block";
 
-  // 프로젝트 필터 — 판정(is_open/stuck)은 서버 값 그대로, 여기선 걸러서 셀 뿐
-  const ft = d.tasks.filter(t => CC.matchesProject(t, CC.getProjFilter()));
-  document.getElementById("task-sum").textContent =
-    `미완료 ${ft.filter(t => t.is_open).length}${
-      ft.filter(t => t.stuck).length ? ` · ⚠️ ${ft.filter(t => t.stuck).length}` : ""}`;
+      // 프로젝트 필터 — 판정(is_open/stuck)은 서버 값 그대로, 여기선 걸러서 셀 뿐
+      const ft = d.tasks.filter(t => CC.matchesProject(t, CC.getProjFilter()));
+      document.getElementById("task-sum").textContent =
+        `미완료 ${ft.filter(t => t.is_open).length}${ft.filter(t => t.stuck).length ? ` · ⚠️ ${ft.filter(t => t.stuck).length}` : ""}`;
 
-  // 미완료 우선 → 정체 우선 → 최근순.
-  // is_open 은 서버(tasks.py) 판정 — 종료 상태 목록을 JS에 복제하지 않는다(SSOT).
-  const list = [...ft].sort((a, b) =>
-    (b.is_open - a.is_open) ||
-    (b.stuck - a.stuck) ||
-    String(b.updated_at).localeCompare(String(a.updated_at))
-  ).slice(0, 8);
+      // 미완료 우선 → 정체 우선 → 최근순.
+      // is_open 은 서버(tasks.py) 판정 — 종료 상태 목록을 JS에 복제하지 않는다(SSOT).
+      const list = [...ft].sort((a, b) =>
+        (b.is_open - a.is_open) ||
+        (b.stuck - a.stuck) ||
+        String(b.updated_at).localeCompare(String(a.updated_at))
+      ).slice(0, 8);
 
-  document.getElementById("tasks").innerHTML = list.map(t => `
+      document.getElementById("tasks").innerHTML = list.map(t => `
     <li class="${t.stuck ? "stuck" : ""}">
       <span class="tid">${esc(t.task_id)}</span>
       <span class="tt">
         <span style="color:${t.state_color}">${t.state_icon} ${esc(t.state_label)}</span>
         ${esc((t.title || "").slice(0, 34))}
-        ${t.project ? `<div class="tw" style="color:#8a91b4">📁 ${esc(t.project)}</div>` : ""}
+        ${t.project ? `<div class="tw" style="color:#adb3d6">📁 ${esc(t.project)}</div>` : ""}
         ${t.anomaly?.length ? `<div class="tw">⚠️ ${esc(t.anomaly[0])}</div>` : ""}
       </span>
-    </li>`).join("") || `<li style="color:#8a91b4">태스크 없음</li>`;
-}
-setInterval(pollTasks, 5000); pollTasks();
-
-// ── 봇 체력 (GET /api/health — 실측 가능한 봇만 게이지) ──
-// 실제 CLI 봇 3명에게만 붙는다. 가상 부서봇(코더봇A 등)은 구독 한도 개념이 없다.
-const REAL_BOTS = new Set(["클또리", "챗또리", "젬또리"]);
-
-async function pollHp() {
-  const box = document.getElementById("hpbox");
-  let d;
-  try {
-    const r = await fetch("/api/health", { cache: "no-store" });
-    if (!r.ok) throw 0;
-    d = await r.json();
-    if (!d.ok) throw 0;
-  } catch {
-    box.style.display = "none";                       // DEMO(정적 서버) — 숨김
-    bots.forEach(b => { if (b.hpbar) b.hpbar.visible = false; });
-    return;
-  }
-  box.style.display = "block";
-
-  const byName = Object.fromEntries(d.bots.map(b => [b.bot, b]));
-
-  // 3D 봇 머리 위 게이지
-  bots.forEach(b => {
-    if (!b.hpbar) return;
-    if (!REAL_BOTS.has(b.name)) { b.hpbar.visible = false; return; }
-    drawHpBar(b.hpbar, byName[b.name]);
-  });
-
-  // HUD 요약
-  document.getElementById("hps3d").innerHTML = d.bots.map(b => {
-    const w = (b.measurable && b.windows?.length) ? b.windows[0] : null;
-    if (!w) {
-      const act = b.activity ? ` · 오늘 ${b.activity.calls_today}회` : "";
-      return `<li><span class="hn3">${b.icon} ${esc(b.bot)}</span>
-        <span class="hna3">측정 불가${act}</span></li>`;
+    </li>`).join("") || `<li style="color:#adb3d6">태스크 없음</li>`;
     }
-    const col = { good: "#6ee7a0", warn: "#ffd166", danger: "#ff6b6b" }[w.level];
-    return `<li>
+    setInterval(pollTasks, 5000); pollTasks();
+
+    // ── 봇 체력 (GET /api/health — 실측 가능한 봇만 게이지) ──
+    // 실제 CLI 봇 3명에게만 붙는다. 가상 부서봇(코더봇A 등)은 구독 한도 개념이 없다.
+    const REAL_BOTS = new Set(["클또리", "챗또리", "젬또리"]);
+
+    async function pollHp() {
+      const box = document.getElementById("hpbox");
+      let d;
+      try {
+        const r = await fetch("/api/health", { cache: "no-store" });
+        if (!r.ok) throw 0;
+        d = await r.json();
+        if (!d.ok) throw 0;
+      } catch {
+        box.style.display = "none";                       // DEMO(정적 서버) — 숨김
+        bots.forEach(b => { if (b.hpbar) b.hpbar.visible = false; });
+        return;
+      }
+      box.style.display = "block";
+
+      const byName = Object.fromEntries(d.bots.map(b => [b.bot, b]));
+
+      // 3D 봇 머리 위 게이지 + 토큰 0%면 쓰러뜨리기(× 눈 + 피 한 줄)
+      bots.forEach(b => {
+        if (!b.hpbar) return;
+        if (!REAL_BOTS.has(b.name)) { b.hpbar.visible = false; return; }
+        drawHpBar(b.hpbar, byName[b.name]);
+        const hp = byName[b.name];
+        const w = (hp?.measurable && hp.windows?.length) ? hp.windows[0] : null;
+        const wasDead = b.dead;
+        b.dead = !!(w && w.remaining_pct <= 0);
+        if (b.dead !== wasDead) updatePose(b);
+      });
+
+      // HUD 요약
+      document.getElementById("hps3d").innerHTML = d.bots.map(b => {
+        const w = (b.measurable && b.windows?.length) ? b.windows[0] : null;
+        const act = b.activity ? ` · 오늘 ${b.activity.calls_today}회` : "";
+        if (!w) {
+          return `<li><span class="hn3">${b.icon} ${esc(b.bot)}</span>
+        <span class="hna3">측정 불가${act}</span></li>`;
+        }
+        const col = { good: "#6ee7a0", warn: "#ffd166", danger: "#ff6b6b" }[w.level];
+        return `<li>
       <span class="hn3">${b.icon} ${esc(b.bot)}</span>
       <span class="ht3">
         <span class="hbar3"><i style="width:${w.remaining_pct}%;background:${col}"></i></span>
         <b style="color:${col}">${w.remaining_pct}%</b>
         <em>${esc(w.label)}${w.resets_at ? ` · ${esc(w.resets_at)} 리셋` : ""}
-            ${b.source === "self" ? " · 본인보고" : ""}</em>
+            ${b.source === "self" ? " · 본인보고" : ""}${act}</em>
       </span>
     </li>`;
-  }).join("");
-}
-setInterval(pollHp, 30000); pollHp();   // 체력은 자주 안 변함
-
-async function pollEvents() {
-  try {
-    const [r, rp] = await Promise.all([
-      fetch("/company/events.jsonl", { cache: "no-store" }),
-      fetch("/company/projects.json", { cache: "no-store" }),
-    ]);
-    // projects.json = 서버 생존 신호. events.jsonl은 신규 환경에 아직 없을 수 있다(런타임 로그, git 미추적)
-    if (!rp.ok) throw 0;
-    try {
-      const pj = await rp.json();
-      syncDepts(pj.depts || []);
-      syncRoster(pj.bots || []);
-      syncProjSel(pj.projects || []);
-    } catch { /* 명단 파싱 실패 무시 */ }
-    const evs = r.ok
-      ? (await r.text()).trim().split("\n").filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean)
-      : [];
-    EVS = evs;
-    if (!live) {  // LIVE 전환: 데모 중단, 전체 로그로 상태 복원 + 최근 30건만 피드 렌더
-      live = true; clearInterval(demoTimer);
-      document.getElementById("mode").textContent = evs.length ? "3D — 🔴 LIVE" : "3D — 🟢 LIVE — 이벤트 없음";
-      for (const ev of evs) applyEvent(ev, false);   // 30건 밖 봇 상태·진행 중 회의도 복원 (챗또리 리뷰)
-      rebuildFeed();                                 // 피드는 프로젝트 필터 기준으로 구성
-      seenCount = evs.length;
-      renderApprovals();
-      return;
+      }).join("");
     }
-    const hadNew = evs.length > seenCount;
-    for (const ev of evs.slice(seenCount)) applyEvent(ev, true);
-    seenCount = evs.length;
-    if (hadNew) renderApprovals();
-  } catch { /* 서빙 안 됨 — DEMO 유지 */ }
-}
-setInterval(pollEvents, 3000); pollEvents();
+    setInterval(pollHp, 30000); pollHp();   // 체력은 자주 안 변함
 
-// ── DEMO 폴백 시나리오 (LIVE 전환 시 자동 중단) ──
-const script = [
-  ["젬또리",   "working", "🔭 젬또리", "BYOK 약관 추가 조사 시작"],
-  ["챗또리",   "working", "🔍 챗또리", "spawn 큐 설계 리뷰 착수"],
-  ["코더봇B",  "working", "⚙️ 코더봇B", "events.jsonl 라이터 구현 중"],
-  ["젬또리",   "idle",    "✅ bot.done", "젬또리 조사 완료 — 보고서 제출"],
-  ["코더봇A",  "idle",    "✅ bot.done", "코더봇A 태스크 완료 — 휴식"],
-  ["챗또리",   "idle",    "✅ bot.done", "리뷰 완료 — High 0건"],
-];
-let si = 0, cost = 1240;
-const demoTimer = setInterval(() => {
-  if (live) return;
-  const [name, state, actor, msg] = script[si % script.length]; si++;
-  const b = bots.find(b => b.name === name);
-  if (b) { b.state = state; b.sitT = 0; assignBehavior(b); }
-  addFeed(actor, msg);
-  cost += Math.floor(Math.random()*22);
-  document.getElementById("c").textContent = cost.toLocaleString();
-}, 6000);
+    async function pollEvents() {
+      try {
+        const [r, rp] = await Promise.all([
+          fetch("/company/events.jsonl", { cache: "no-store" }),
+          fetch("/company/projects.json", { cache: "no-store" }),
+        ]);
+        // projects.json = 서버 생존 신호. events.jsonl은 신규 환경에 아직 없을 수 있다(런타임 로그, git 미추적)
+        if (!rp.ok) throw 0;
+        try {
+          const pj = await rp.json();
+          syncDepts(pj.depts || []);
+          syncRoster(pj.bots || []);
+          refreshDeskLayout();          // 부서/인원 변동 반영 — 변화 없으면 no-op
+          syncProjSel(pj.projects || []);
+        } catch { /* 명단 파싱 실패 무시 */ }
+        const evs = r.ok
+          ? (await r.text()).trim().split("\n").filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean)
+          : [];
+        EVS = evs;
+        if (!live) {  // LIVE 전환: 데모 중단, 전체 로그로 상태 복원 + 최근 30건만 피드 렌더
+          live = true; clearInterval(demoTimer);
+          document.getElementById("mode").textContent = evs.length ? "3D — 🔴 LIVE" : "3D — 🟢 LIVE — 이벤트 없음";
+          for (const ev of evs) applyEvent(ev, false);   // 30건 밖 봇 상태·진행 중 회의도 복원 (챗또리 리뷰)
+          rebuildFeed();                                 // 피드는 프로젝트 필터 기준으로 구성
+          seenCount = evs.length;
+          renderApprovals();
+          return;
+        }
+        const hadNew = evs.length > seenCount;
+        for (const ev of evs.slice(seenCount)) applyEvent(ev, true);
+        seenCount = evs.length;
+        if (hadNew) renderApprovals();
+      } catch { /* 서빙 안 됨 — DEMO 유지 */ }
+    }
+    setInterval(pollEvents, 3000); pollEvents();
 
-document.querySelectorAll(".appr").forEach(card => {
-  card.querySelector(".ok").onclick = () => { card.classList.add("done");
-    card.querySelector(".vd").textContent = "✅ 승인됨"; addFeed("👤 PM", card.querySelector(".t").textContent + " 승인"); };
-  card.querySelector(".no").onclick = () => { card.classList.add("done");
-    card.querySelector(".vd").textContent = "↩ 반려됨"; addFeed("👤 PM", card.querySelector(".t").textContent + " 반려"); };
-});
-</script>
+    // ── DEMO 폴백 시나리오 (LIVE 전환 시 자동 중단) ──
+    const script = [
+      ["젬또리", "working", "🔭 젬또리", "BYOK 약관 추가 조사 시작"],
+      ["챗또리", "working", "🔍 챗또리", "spawn 큐 설계 리뷰 착수"],
+      ["코더봇B", "working", "⚙️ 코더봇B", "events.jsonl 라이터 구현 중"],
+      ["젬또리", "idle", "✅ bot.done", "젬또리 조사 완료 — 보고서 제출"],
+      ["코더봇A", "idle", "✅ bot.done", "코더봇A 태스크 완료 — 휴식"],
+      ["챗또리", "idle", "✅ bot.done", "리뷰 완료 — High 0건"],
+    ];
+    let si = 0, cost = 1240;
+    const demoTimer = setInterval(() => {
+      if (live) return;
+      const [name, state, actor, msg] = script[si % script.length]; si++;
+      const b = bots.find(b => b.name === name);
+      if (b) { b.state = state; b.sitT = 0; assignBehavior(b); }
+      addFeed(actor, msg);
+      cost += Math.floor(Math.random() * 22);
+      document.getElementById("c").textContent = cost.toLocaleString();
+    }, 6000);
+
+    document.querySelectorAll(".appr").forEach(card => {
+      card.querySelector(".ok").onclick = () => {
+        card.classList.add("done");
+        card.querySelector(".vd").textContent = "✅ 승인됨"; addFeed("👤 PM", card.querySelector(".t").textContent + " 승인");
+      };
+      card.querySelector(".no").onclick = () => {
+        card.classList.add("done");
+        card.querySelector(".vd").textContent = "↩ 반려됨"; addFeed("👤 PM", card.querySelector(".t").textContent + " 반려");
+      };
+    });
+  </script>
 </body>
+
 </html>

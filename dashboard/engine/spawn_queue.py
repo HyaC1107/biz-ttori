@@ -32,9 +32,11 @@ def _find_root() -> Path:
 
 ROOT = _find_root()
 QUEUE_PATH = ROOT / "company" / "spawn-queue.json"
+CLAUDE_SNAP = Path.home() / ".claude" / ".rate-limits.json"  # health.py._claude()와 동일 소스(실측)
+CLAUDE_CREDIT_MIN_PCT = 20.0    # 클또리 5시간 크레딧 하한 (PM 결정 2026-07-15) — 이하면 spawn 차단
 LIMIT = 2                      # PM 승인 상한 (2026-07-10)
-STALE_MIN = 120                # 2시간 넘은 엔트리는 좀비로 간주·자동 회수
 KST = timezone(timedelta(hours=9))
+STALE_MIN = 120                # 2시간 넘은 엔트리는 좀비로 간주·자동 회수
 
 sys.path.insert(0, str(Path(__file__).parent))
 try:
@@ -42,6 +44,74 @@ try:
 except ImportError:
     append_event = None
     validate_project = None
+
+
+def check_claude_credit_limit() -> bool:
+    """클또리(Claude Code) 5시간 롤링 크레딧 잔량이 하한(20%) 이하면 신규 spawn 차단.
+
+    biz-ttori는 구독형이라 USD 단가 계산은 무의미 — health.py._claude()와 동일하게
+    Claude Code statusLine 훅이 기록하는 실측 스냅샷(~/.claude/.rate-limits.json)을 그대로 쓴다.
+    (구 버전은 $3/$15/$3.75/$0.3 단가로 일일 $10 계산을 했었는데, 구독형과 안 맞아 폐기 —
+    2026-07-15 PM 결정으로 크레딧 잔량% 기준으로 교체.)
+    """
+    if not CLAUDE_SNAP.exists():
+        return True  # 스냅샷 없음(세션 미기동 등) — 판단 불가, 허용
+
+    try:
+        snap = json.loads(CLAUDE_SNAP.read_text(encoding="utf-8"))
+        used = snap.get("five_hour")
+        if used is None:
+            return True  # 플랜에 따라 미제공 — 판단 불가, 허용
+        remaining = max(0, min(100, 100 - int(used)))
+        if remaining <= CLAUDE_CREDIT_MIN_PCT:
+            print(f"❌ 클또리 5시간 크레딧 잔량 하한 도달 ({remaining}% ≤ {CLAUDE_CREDIT_MIN_PCT:.0f}%) — spawn 차단")
+            return False
+    except Exception as e:
+        print(f"⚠️ 클또리 크레딧 검사 중 오류 발생: {e} (안전을 위해 허용)")
+    return True
+
+
+def check_gemttori_quota_limit() -> bool:
+    health_path = ROOT / "company" / "bot_health.json"
+    if not health_path.exists():
+        return True
+        
+    try:
+        health_data = json.loads(health_path.read_text(encoding="utf-8"))
+        gemttori_health = health_data.get("젬또리")
+        if not gemttori_health:
+            return True
+            
+        remaining = float(gemttori_health.get("remaining_pct", 100.0))
+        resets_at = gemttori_health.get("resets_at")
+        
+        if remaining < 15.0:
+            if resets_at:
+                try:
+                    now = datetime.now(KST)
+                    reset_time = None
+                    if "T" in resets_at:
+                        reset_time = datetime.fromisoformat(resets_at)
+                    else:
+                        parts = resets_at.split(" ")
+                        if len(parts) == 2:
+                            md = parts[0].split("-")
+                            hm = parts[1].split(":")
+                            if len(md) == 2 and len(hm) == 2:
+                                reset_time = now.replace(
+                                    month=int(md[0]), day=int(md[1]),
+                                    hour=int(hm[0]), minute=int(hm[1]), second=0, microsecond=0
+                                )
+                    if reset_time and now >= reset_time:
+                        return True
+                except Exception:
+                    pass
+            
+            print(f"❌ 젬또리 크레딧 15% 미만 경보 ({remaining:.0f}% 남음) — 리셋 대기 필요")
+            return False
+    except Exception as e:
+        print(f"⚠️ 젬또리 쿼터 검사 중 오류 발생: {e} (안전을 위해 허용)")
+    return True
 
 
 def _load() -> dict:
@@ -78,6 +148,12 @@ def claim(task_id: str, actor: str, project: str | None = None) -> bool:
         except ValueError as e:
             print(f"❌ {e}")
             return False
+    # 클또리(Claude) 5시간 크레딧 잔량 검사 (20% 이하 차단, PM 결정 2026-07-15)
+    if not check_claude_credit_limit():
+        return False
+    # 젬또리 구독 크레딧 잔량 검사 (15% 미만 차단, PM 결정)
+    if not check_gemttori_quota_limit():
+        return False
     q = _load()
     _evict_stale(q)
     if task_id in q["running"]:
