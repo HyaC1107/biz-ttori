@@ -1,6 +1,7 @@
 ---
 date: YYYY-MM-DD
 projects:
+workers: [클또리, 젬또리]
 tags: [daily]
 ---
 
@@ -10,7 +11,7 @@ tags: [daily]
 
 ## 오늘 한 일
 
-### [[projects/<프로젝트명>]] — <작업명>
+### [[projects/<프로젝트명>]] [작업자] — <작업명>
 - 
 
 ---
@@ -37,5 +38,5 @@ tags: [daily]
 
 ---
 
-## Slack 보고 요약
+## 사내 보고 요약
 > 

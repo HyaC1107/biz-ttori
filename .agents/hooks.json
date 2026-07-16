@@ -8,5 +8,62 @@
         "timeout": 15
       }
     ]
+  },
+  "gemttori-usage-report": {
+    "enabled": true,
+    "PostToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/linkcampus02/biz-ttori/tools/report-gemttori-quota.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "view_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/linkcampus02/biz-ttori/tools/report-gemttori-quota.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/linkcampus02/biz-ttori/tools/report-gemttori-quota.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "write_to_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/linkcampus02/biz-ttori/tools/report-gemttori-quota.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 /Users/linkcampus02/biz-ttori/tools/append-gemttori-done.py",
+        "timeout": 5
+      },
+      {
+        "type": "command",
+        "command": "python3 /Users/linkcampus02/biz-ttori/tools/report-gemttori-quota.py",
+        "timeout": 5
+      }
+    ]
   }
 }
