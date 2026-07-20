@@ -1,21 +1,21 @@
 {
   "젬또리": {
     "note": "Hooks 자가보고 자동 갱신",
-    "reported_at": "2026-07-16T17:57:20+09:00",
+    "reported_at": "2026-07-20T15:38:37+09:00",
     "windows": [
       {
         "label": "5시간",
-        "remaining_pct": 54,
-        "resets_at": "07-16 21:16"
+        "remaining_pct": 90,
+        "resets_at": "07-20 19:34"
       },
       {
         "label": "7일",
-        "remaining_pct": 32,
-        "resets_at": "07-20 14:46"
+        "remaining_pct": 98,
+        "resets_at": "07-27 14:46"
       }
     ],
-    "remaining_pct": 54,
+    "remaining_pct": 90,
     "window": "5시간",
-    "resets_at": "07-16 21:16"
+    "resets_at": "07-20 19:34"
   }
 }

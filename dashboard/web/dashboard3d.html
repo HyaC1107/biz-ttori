@@ -880,13 +880,13 @@
     // 눕는 자세(죽음/휴식 공용) + 표정 — state/dead가 바뀔 때마다 여기서 한 번에 반영한다.
     // 회전축을 X로 잡아서(Z가 아니라) 팔다리가 옆으로 안 겹치고 좌우로 자연스럽게 눕는다.
     function updatePose(bot) {
-      const lying = bot.dead || bot.state === "idle";
+      const lying = bot.dead;   // 체력 0%(dead)일 때만 누움 (idle 시 누워있는 현상 제거)
       bot.grp.rotation.x = lying ? -Math.PI / 2 : 0;
       bot.grp.position.y = lying ? .18 : 0;
       if (lying) { bot.legs.forEach(l => l.rotation.x = 0); bot.arms.forEach(a => a.rotation.x = 0); }
       bot.deadFace.visible = !!bot.dead;
       bot.eyes.forEach(e => e.visible = !bot.dead);   // 죽으면 원래 눈알 숨기고 ✕_✕만 보이게
-      bot.zz.visible = bot.state === "idle" && !bot.dead;
+      bot.zz.visible = false;
     }
     function removeBot(b) {
       if (b.desk) { b.desk.taken = null; b.desk.scr.material = screenOff; }
@@ -927,24 +927,25 @@
       // 회의 중이 아닌데 회의석을 물고 있으면 반납 (bot.done 등으로 회의 이탈 시)
       const ms = meetSeats.find(s => s.taken === bot.name);
       if (ms && bot.state !== "meeting") ms.taken = null;
-      // working만 책상에 앉힌다. idle(일 없음)은 책상 대신 그 자리에 누워서 쉰다(PM: "일없는 애들은
-      // 누워서 빈둥거리는 느낌으로"). 회의 중엔 desk 배정 자체를 건너뛴다.
-      if (bot.state === "working") {
-        const free = deptDesks(bot.dept).filter(d => !d.taken);
-        if (free.length) {
-          const d = free[Math.floor(Math.random() * free.length)];
-          d.taken = bot.name; bot.desk = d; bot.target = d.seat.clone();
-          updatePose(bot);
-          return;
-        }
-        // 책상이 다 찬 과도기(인원 늘어난 직후 등) — 자리 나길 그 자리에 서서 대기
-        bot.target = null;
+      if (bot.dead) { updatePose(bot); return; }
+
+      // working 및 idle 상태 모두 책상에 앉거나 부서 영역 내를 서성거리도록 변경 (누움 제거)
+      const free = deptDesks(bot.dept).filter(d => !d.taken);
+      if (free.length && (bot.state === "working" || Math.random() > 0.3)) {
+        const d = free[Math.floor(Math.random() * free.length)];
+        d.taken = bot.name; bot.desk = d; bot.target = d.seat.clone();
         updatePose(bot);
         return;
       }
-      if (bot.state === "meeting") { updatePose(bot); return; }   // target은 debateJoin이 직접 세팅
-      // idle: 그 자리에 누워서 휴식 — 배회하지 않는다
-      bot.target = null;
+      if (bot.state === "meeting") { updatePose(bot); return; }
+      
+      // 부서 구역 내 무작위 위치로 유유히 서성거리기 (Wandering)
+      const dp = bot.dp;
+      bot.target = new THREE.Vector3(
+        dp.x + (Math.random() - .5) * Math.max(1, dp.w - 1.2),
+        0,
+        dp.z + (Math.random() - .5) * Math.max(1, dp.d - 1.2)
+      );
       updatePose(bot);
     }
     for (const cfg of BOTS) bots.push(makeBot(cfg));
@@ -981,11 +982,15 @@
               b.arms[0].rotation.x = -1 + Math.sin(t * 13) * .25;
               b.arms[1].rotation.x = -1 + Math.cos(t * 11) * .25;
               b.sitT += dt;
-              if (b.sitT > 35 + Math.random() * 20) { b.sitT = 0; assignBehavior(b); } // 기지개 겸 자리 이동 (오래 앉아있다 가끔)
+              if (b.sitT > 20 + Math.random() * 15) { b.sitT = 0; assignBehavior(b); } // 자리 이동
             } else if (b.state === "meeting") {
               // 회의: 원탁을 바라보고 토론 손짓
               b.grp.rotation.y = Math.atan2(MEET.x - pos.x, MEET.z - pos.z);
               b.arms.forEach((a, i) => a.rotation.x = -.5 + Math.sin(t * 3 + b.phase + i * 1.7) * .25);
+            } else {
+              // 산책 지점 도착: 일정 시간 서서 휴식 후 다시 산책
+              b.sitT += dt;
+              if (b.sitT > 4 + Math.random() * 6) { b.sitT = 0; assignBehavior(b); }
             }
           }
         }
