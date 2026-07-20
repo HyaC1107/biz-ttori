@@ -112,6 +112,7 @@ T9. ✅ 통합 검증: shebang 실행권한으로 cli dist를 진짜 실행파�
 ## 7. v1 이후 열린 항목 (future)
 
 - ⚠️ **`btd` bin 패키징 갭**(T9 발견): pnpm workspace 안에서 `@btd/cli`가 아무 패키지의 dependency도 아니라 bin 심볼릭링크가 자동 생성 안 됨. 실제 `npx btd`(npm registry 배포) 또는 `pnpm link --global` 전에는 검증 불가한 부분 — v1은 shebang 직접실행으로 기능 동일성만 확인. **npm publish 준비 시 반드시 재검증.**
+- 🔴 **멀티 "메인 에이전트" 벤더중립 설계**(2026-07-20 PM 지적, 리서치 요청 중): v1은 암묵적으로 "클로드 코드=메인"에 종속됨(`CLAUDE.md` 파일명, 클로드코드 전용 `hooks.json` 스키마). 실제 사용자는 Antigravity(agy)·Codex를 메인으로 쓸 수도 있음 — 비전 §4 "특정 벤더 종속 안 함" 원칙과 어긋남. **제안 아키텍처(검증 대기)**: 레포 루트 `AGENTS.md`를 캐노니컬 규칙파일로, `CLAUDE.md`는 `@AGENTS.md` import를 쓰는 얇은 포인터로 → 메인 에이전트가 뭐든 자동 대응. 검증할 사실: ① Claude Code `@파일` import 실존여부·문법 ② `AGENTS.md`가 Codex 등 여러 툴의 공용 컨벤션인지 ③ Antigravity가 메인일 때 읽는 규칙파일. 젬또리 리서치 요청 발송(`memory/outbox.md`, 처리 대기). 세부3 "스텝4 에이전트설정"(v1에서 이미 미룬 항목)과 자연스럽게 연결됨 — 답변 오면 세부3/세부4 갱신 예정.
 - 온톨로지 R2(doctor 타입별 관계검증) — 세부5 §4.
 - 관제/모니터링 웹(v1.1) — 세부3, board.html 계승, 3D뷰 제외.
 - 포폴 패키징(스크린샷·GIF·케이스스터디 문서) — 보류.
