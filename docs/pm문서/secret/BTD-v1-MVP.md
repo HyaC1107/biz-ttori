@@ -87,7 +87,10 @@ T7. ✅ @btd/cli: `btd`(server기동+볼트감지 안내) / `btd init`(헤드리
     - 검증: 실전 스모크 6개 시나리오 전부 통과(help·init헤드리스·재실행안내·멱등재실행·미지명령·pack add) + `btd` 무인자 실행을 볼트有/無 양쪽에서 curl 확인.
 T8. ✅ @btd/web: Vite+React 셋업 마법사 5스텝(PackSelect/Review/Scaffold/Doctor/Done) + api클라이언트 + 라이트/다크 styles. server에 compatible필드·web/dist 정적서빙 연결, shared에 API계약 타입. 스텝3 Review=포폴 킬러화면(뼈대 vs 팩자산 카테고리 시각화). (로컬커밋 a4e3e9f)
     - 검증: pnpm build 6/6(vite포함) + Playwright 브라우저 e2e 전스텝 클릭통과(팩선택→구성확인→생성→doctor✅0건→완료35파일) + 디스크 볼트 실제생성·슬롯해소 확인 + 스크린샷.
-T9. 통합 검증: 빈 디렉토리에서 `npx btd`(실제 bin) → 서버기동 → 브라우저 마법사 → 볼트 생성 → doctor 통과 (최종 관통)  ← 마지막
+T9. ✅ 통합 검증: shebang 실행권한으로 cli dist를 진짜 실행파일(`btd`, node 명시 없이)로 완전 새 빈 디렉토리에서 구동 → Playwright 브라우저로 5스텝 전체 관통(팩선택→구성확인→생성→doctor✅0/0→완료35파일) → 디스크 실제생성·슬롯해소 확인 → 서버 재기동 시 기존볼트 감지 분기(`/api/status`)까지 확인.
+    - ⚠️ 발견: pnpm workspace에서 `@btd/cli`가 어디의 dependency도 아니라 `btd` bin이 자동 심볼릭링크 안 됨(`node_modules/.bin/btd` 없음, `pnpm exec` 불가). **실제 npm publish 전엔 알 수 없던 패키징 갭.** v1 MVP는 shebang 직접실행으로 우회 검증(기능적으로 동일 메커니즘). **실배포(npm publish 또는 `pnpm link --global`) 전 해결 필요 — future 작업으로 기록.**
+
+🎉 **v1 MVP 워킹 스켈레톤 완성 (T1~T9 전부 완료, 2026-07-20).**
 ```
 
 ---
@@ -101,6 +104,17 @@ T9. 통합 검증: 빈 디렉토리에서 `npx btd`(실제 bin) → 서버기동
 5. 완료 → 생성된 볼트를 열어보면 정상 구조(memory 스키마·템플릿·팩 규칙 반영).
 
 > 이 5단계가 GIF/영상 하나로 찍히면 **BTD 포폴의 코어 데모** 완성.
+
+**✅ 2026-07-20 T9에서 5단계 전부 실증 완료**(Playwright 브라우저 e2e). 스크린샷/GIF 촬영은 보류(PM 요청) — 필요할 때 재개.
+
+---
+
+## 7. v1 이후 열린 항목 (future)
+
+- ⚠️ **`btd` bin 패키징 갭**(T9 발견): pnpm workspace 안에서 `@btd/cli`가 아무 패키지의 dependency도 아니라 bin 심볼릭링크가 자동 생성 안 됨. 실제 `npx btd`(npm registry 배포) 또는 `pnpm link --global` 전에는 검증 불가한 부분 — v1은 shebang 직접실행으로 기능 동일성만 확인. **npm publish 준비 시 반드시 재검증.**
+- 온톨로지 R2(doctor 타입별 관계검증) — 세부5 §4.
+- 관제/모니터링 웹(v1.1) — 세부3, board.html 계승, 3D뷰 제외.
+- 포폴 패키징(스크린샷·GIF·케이스스터디 문서) — 보류.
 
 ---
 
