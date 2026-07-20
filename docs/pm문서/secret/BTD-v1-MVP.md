@@ -111,11 +111,15 @@ T9. ✅ 통합 검증: shebang 실행권한으로 cli dist를 진짜 실행파�
 
 ## 7. v1 이후 열린 항목 (future)
 
-- ⚠️ **`btd` bin 패키징 갭**(T9 발견): pnpm workspace 안에서 `@btd/cli`가 아무 패키지의 dependency도 아니라 bin 심볼릭링크가 자동 생성 안 됨. 실제 `npx btd`(npm registry 배포) 또는 `pnpm link --global` 전에는 검증 불가한 부분 — v1은 shebang 직접실행으로 기능 동일성만 확인. **npm publish 준비 시 반드시 재검증.**
+- ✅ **`btd` bin 패키징 갭 — T10에서 해결 (2026-07-20, 로컬커밋 54581d8)**: 루트 `package.json` devDependencies에 `@btd/cli` 추가 → `node_modules/.bin/btd` shim 자동 생성. PATH 경유 실행으로 완전 새 빈 디렉토리에서 `btd init --yes` 검증(35파일·doctor통과, 실제 설치형 사용 경험과 동일 메커니즘). 전역 셸설정(`pnpm setup`) 안 건드림. **단, 이건 로컬/워크스페이스 내 실행 갭 해결이지 실제 npm registry publish는 별개**(패키지명·버전·5개 workspace:* 의존성 처리 방식 등 미결 — 아래 참조).
 - ✅ **멀티 "메인 에이전트" 벤더중립 설계 — 검증 완료, 구현은 v2로 명시적 이연 (2026-07-20 결론)**:
   - 리서치 검증 결과(젬또리 4차 우편 + 클또리 WebFetch 원문대조): ① Claude Code `@파일` import **실재**(공식문서 `code.claude.com/docs/en/memory`, 재귀 최대 4단계) ② `AGENTS.md` **진짜 업계표준**(Linux Foundation, Codex/Cursor/Copilot/Windsurf 등 광범위 지원, agents.md 사이트 직접 확인) ③ **Anthropic 공식문서가 정확히 이 패턴을 권장**: `CLAUDE.md`에 `@AGENTS.md` 1줄 + 클로드 전용 추가사항. (④ Antigravity 네이티브 컨벤션은 젬또리가 출처 없이 답해 **미검증 폐기** — 필요시 PM이 직접 `agy` 빈폴더 실행해 확인.)
   - **PM 결정(2026-07-20)**: 지금 리팩터링하지 않고, **v1 스코프를 "BTD (Claude Code 에디션)"으로 명시**하는 쪽으로 정리(비전 §0.1 참조). 검증된 아키텍처는 그대로 두고 다음 버전에 구현.
   - 남는 별개 이슈: `hooks.json`(클로드 전용 lifecycle 훅)은 AGENTS.md 방식으로도 안 풀림.
+- 🔵 **npm registry 실배포 — 보류 결정 (2026-07-20 PM 판단)**: "완성도 문제로 아무나 npx 설치하게 두긴 이르다" — IP 보호가 아니라 폴리시 미달 우려. **결론: 포폴 목적은 GitHub 레포 자체로 충분, 실제 publish는 불필요.** 배포 준비 트랙(패키징/번들 전략)은 여기서 정지.
+  - 젬또리 리서치(5차 우편, **원문 미검증** — 재개 시 재검증 필수): ① 패키지명 `btd` npm에 이미 선점(12년 전 구형 패키지) → 대안 `@hyac1107/btd` 또는 `btd-cli` ② 2026년 npm publish는 2FA 필수 + provenance 권장(OIDC) ③ `create-vite`류 관례상 모노레포도 **단일 번들 패키지**로 배포 + `package.json` `files` 필드로 `packs/`·`skeleton/` 동봉.
+  - 결재 대기중이던 항목(B.단일번들/C.MIT/D.자산번들)도 **보류** — 재개 시 이 기록에서 이어감.
+  - 재개 조건: BTD가 실제로 "남에게 설치해서 써보라고 해도 되는" 완성도(에러 핸들링·문서화·관제웹 등)에 도달했다고 PM이 판단할 때.
 - 온톨로지 R2(doctor 타입별 관계검증) — 세부5 §4.
 - 관제/모니터링 웹(v1.1) — 세부3, board.html 계승, 3D뷰 제외.
 - 포폴 패키징(스크린샷·GIF·케이스스터디 문서) — 보류.
