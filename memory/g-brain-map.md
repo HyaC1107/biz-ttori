@@ -24,8 +24,6 @@
 | 인덱스 | 대상 폴더 |
 |:---|:---|
 | [[specs/README]] | `specs/` (biz-ttori 자체 툴 스펙) |
-| [[projects/close/Docs/업무/README]] | `projects/close/Docs/업무/` |
-| [[projects/fanbird-broadcast/README]] | `projects/fanbird-broadcast/` |
 
 ---
 
@@ -42,20 +40,19 @@
 ## 📂 프로젝트 노드 (실연동 시 추가)
 
 > 실제 활성화된 외부 프로젝트 노드 자동 동기화 목록입니다.
+> 2026-07-27: 환경 초기화로 `projects/` 폴더가 비워지면서 기존 FMS/close/fanbird-broadcast 노드는 제거했다(문서 드리프트 정리 — team-rules.md 교훈 #2). 새 프로젝트가 붙으면 아래에 추가한다.
 
 | 프로젝트 | 폴더 | context | api-specs 범위 | 상태 |
 |:---|:---|:---|:---|:---|
-| [[FMS/FMS]] | `projects/FMS/` | `projects/FMS/context.md` | `projects/FMS/api-specs.md` | 🟢 활성 |
-| [[close/close]] | `projects/close/` | `projects/close/context.md` | `projects/close/api-specs.md` | 🟢 활성 |
-| [[fanbird-broadcast/fanbird-broadcast]] | `projects/fanbird-broadcast/` | `projects/fanbird-broadcast/context.md` | `projects/fanbird-broadcast/api-specs.md` | 🟢 활성 |
+| _(없음)_ | | | | |
 
 ### 내부 툴(biz-ttori 자체 개발)
 
+> 2026-07-27: `specs/`에 실제로 존재하지 않는 문서(slack-integration-spec, openclaw-integration-guide, ask-gemttori-dashboard-spec)를 가리키던 드리프트 항목을 제거했다. 새 내부 툴 사양이 생기면 여기 추가한다.
+
 | 툴 | 사양서 | 상태 |
 |:---|:---|:---|
-| Slack 연동 | [[slack-integration-spec]] (`specs/slack-integration-spec.md`) | 🟢 Phase1 구현(`tools/slack-post.sh`) |
-| OpenClaw 연동 | [[openclaw-integration-guide]] (`specs/openclaw-integration-guide.md`) | 🟡 Phase2 설계(leash 모델로 교정) |
-| 젬또리 질문창 | [[ask-gemttori-dashboard-spec]] (`specs/ask-gemttori-dashboard-spec.md`) | 🟡 Phase1 설계 완료 |
+| _(없음)_ | | |
 
 ---
 
